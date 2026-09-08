@@ -2,7 +2,7 @@
 
 import { useMemo, useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addToDayAction, optimizeDayAction, removeStopAction, replanRemainingAction, reorderStopsAction, rescheduleRemainingAction } from "@/app/actions/day";
+import { addToDayAction, optimizeDayAction, removeStopAction, replanRemainingAction, reorderStopsAction, rescheduleRemainingAction, shareDayAction } from "@/app/actions/day";
 import { ActivityForm } from "@/components/day/activity-form";
 import { DaySettings } from "@/components/day/day-settings";
 import { StopList } from "@/components/day/stop-list";
@@ -42,6 +42,7 @@ export function DayPlanner({
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const available = activities
     .filter((a) => !stops.some((s) => s.activityId === a.id))
@@ -55,6 +56,24 @@ export function DayPlanner({
     startTransition(async () => {
       await addToDayAction(day.id, activityId);
       router.refresh();
+    });
+  }
+
+  function handleShare() {
+    startTransition(async () => {
+      const res = await shareDayAction(day.id);
+      if (res.ok && res.url) {
+        try {
+          await navigator.clipboard.writeText(res.url);
+        } catch {
+          // clipboard indisponível; segue sem erro
+        }
+        setBannerError(null);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        setBannerError(res.error ?? "Erro ao compartilhar.");
+      }
     });
   }
 
@@ -214,6 +233,9 @@ export function DayPlanner({
           </Button>
           <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => goToDate(addDaysIso(today, 1))}>
             Amanhã
+          </Button>
+          <Button variant="ghost" className="px-3 py-1.5 text-xs" onClick={() => void handleShare()}>
+            {copied ? "✓ Link copiado" : "Compartilhar"}
           </Button>
         </div>
       </div>

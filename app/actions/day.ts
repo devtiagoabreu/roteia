@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import {
   addActivityToDay,
   deleteDay,
+  getOrCreateShareToken,
   optimizeDay,
   removeDayStop,
   reorderDayStops,
@@ -226,5 +227,18 @@ export async function replanRemainingAction(
     return { ok: true, moved };
   } catch {
     return { ok: false, error: "Não foi possível replanejar as pendências." };
+  }
+}
+
+export type ShareDayResult = { ok: boolean; url?: string; error?: string };
+
+export async function shareDayAction(dayId: string): Promise<ShareDayResult> {
+  try {
+    const user = await requireUser();
+    const token = await getOrCreateShareToken(user.tenantId, dayId);
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    return { ok: true, url: `${origin}/share/${token}` };
+  } catch {
+    return { ok: false, error: "Não foi possível gerar o link." };
   }
 }

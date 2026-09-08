@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { buildDayPlan, planInOrder, TRANSPORT_KMH } from "@/lib/day/optimize";
 import { timeInTz, toDate } from "@/lib/date";
+import { randomBytes } from "node:crypto";
 import { ApiError } from "@/lib/api-error";
 import type { Day, DayStop } from "@/generated/prisma/client";
 
@@ -467,4 +468,36 @@ export async function replanPendingToToday(
   });
 
   return pending.length;
+}
+export async function getOrCreateShareToken(
+  tenantId: string,
+  dayId: string,
+): Promise<string> {
+  const day = await db.day.findFirst({ where: { id: dayId, tenantId } });
+  if (!day) throw new ApiError("DAY_NOT_FOUND", 404, "Dia não encontrado.");
+  if (day.shareToken) return day.shareToken;
+
+  const token = randomBytes(12).toString("hex");
+  await db.day.update({
+    where: { id: dayId },
+    data: { shareToken: token, version: { increment: 1 } },
+  });
+  return token;
+}
+
+export type SharedDay = Day & {
+  tenant: { name: string; slug: string; timezone: string };
+  stops: DayStop[];
+};
+
+export async function getDayByShareToken(token: string): Promise<SharedDay> {
+  const day = await db.day.findUnique({
+    where: { shareToken: token },
+    include: {
+      tenant: { select: { name: true, slug: true, timezone: true } },
+      stops: { orderBy: { position: "asc" } },
+    },
+  });
+  if (!day) throw new ApiError("SHARE_NOT_FOUND", 404, "Dia não encontrado.");
+  return day;
 }
