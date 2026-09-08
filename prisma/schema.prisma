@@ -100,9 +100,23 @@ model User {
   sessions Session[]
   days     Day[]
   auditLogs AuditLog[]
+  passwordResets PasswordResetToken[]
 
   @@unique([tenantId, email])
   @@index([email])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Session {

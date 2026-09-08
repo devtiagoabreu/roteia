@@ -10,7 +10,14 @@ export default function LoginPage() {
         <LoginForm />
       </Card>
       <p className="mt-4 text-center text-sm text-zinc-500">
-        Ainda não tem conta?{" "}
+        Esqueceu a senha?{" "}
+        <Link
+          href="/recuperar-senha"
+          className="font-medium text-zinc-900 underline dark:text-zinc-100"
+        >
+          Recuperar
+        </Link>{" "}
+        · Ainda não tem conta?{" "}
         <Link
           href="/register"
           className="font-medium text-zinc-900 underline dark:text-zinc-100"
