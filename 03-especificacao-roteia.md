@@ -136,17 +136,17 @@ Se isso funcionar bem, temos um produto para testar.
 |---|---|---|
 | 09 | Criar conta com e-mail/senha | ✅ |
 | 10 | Entrar e sair | ✅ |
-| 11 | Login com Google | ☐ |
+| 11 | Login com Google | ✅ (pronto; ativado por env `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`) |
 | 12 | Login com Apple | ☐ |
-| 13 | Recuperar senha | ☐ |
-| 14 | Editar perfil | ☐ |
-| 15 | Selecionar perfil de uso | ☐ |
+| 13 | Recuperar senha | ✅ (e-mail Resend; em dev o link vai para o log) |
+| 14 | Editar perfil | ✅ (página /perfil) |
+| 15 | Selecionar perfil de uso | ✅ (pessoal; comercial/colaboradores no roadmap) |
 | 16 | Múltiplos perfis | ☐ |
-| 17 | Preferência de transporte | ☐ (motor assume carro) |
+| 17 | Preferência de transporte | ✅ (modo por conta; motor usa `TRANSPORT_KMH`) |
 | 18 | Preferências de rota | ☐ |
 | 19 | Margem de segurança | ✅ (padrão 10 min por dia/atividade) |
 | 20 | Origem padrão | ✅ (endereço inicial do dia) |
-| 21 | Destino padrão | ☐ |
+| 21 | Destino padrão | 🟡 (destino final por dia; padrão global não) |
 
 ### 🔴 BLOCO 3 — SEM CADASTRO
 
@@ -165,12 +165,12 @@ Se isso funcionar bem, temos um produto para testar.
 | 27 | Digitar endereço | ✅ |
 | 28 | Autocomplete de endereço | ✅ (dropdown ORS/Nominatim no formulário) |
 | 29 | Geocodificar endereço | ✅ (Nominatim + ORS) |
-| 30 | Confirmar endereço | 🟡 (marcador no mapa) |
+| 30 | Confirmar endereço | ✅ (marcador no mapa + picker de coordenadas) |
 | 31 | Exibir no mapa | ✅ |
 | 32 | Guardar lat/lng | ✅ |
 | 33 | Tratar endereço ambíguo | ✅ (lista de sugestões; usuário escolhe) |
 | 34 | Endereço não encontrado | ✅ (aviso no dropdown + geocodifica ao salvar) |
-| 35 | Ajustar manualmente no mapa | ☐ |
+| 35 | Ajustar manualmente no mapa | ✅ (marcador arrastável Leaflet) |
 | 36 | Parada sem endereço | ✅ |
 | 37 | Salvar local (Meus Locais) | ✅ |
 | 38 | Editar local salvo | ✅ |
@@ -230,7 +230,7 @@ Se isso funcionar bem, temos um produto para testar.
 |---|---|---|
 | 80 | Receber atividades | ✅ |
 | 81 | Considerar origem | ✅ |
-| 82 | Considerar destino | 🟡 (origem sim; destino não modelado) |
+| 82 | Considerar destino | ✅ (endereço final do dia entra no itinerário) |
 | 83 | Considerar horários | ✅ |
 | 84 | Considerar duração | ✅ |
 | 85 | Considerar prioridades | ✅ |
@@ -462,18 +462,18 @@ dia/atividade. Exclusão hoje é física (cascade) + auditada.
 | ADR-009 | Prioridades: 4 níveis com pesos determinísticos no motor | Decisão 30 do `002` |
 | ADR-010 | Margem de segurança padrão 10 min (dia e atividade) | Decisão 31 do `002`; configurável por entidade |
 | ADR-011 | `SavedPlace` no schema desde o início (Locais salvos) | Modelo pronto p/ fatia Meus Locais |
-| ADR-012 | **Login social e recuperação de senha fora do MVP** | Após teste real, se demandado |
+| ADR-012 | **Login Google e recuperação de senha dentro do MVP** (env-gated) | Foram demandados; integração Apple/login social fica no roadmap |
 
 ---
 
 ## 9. Roadmap pós-MVP
 
-- Login Google/Apple, recuperação de senha, múltiplos perfis.
+- Login Apple, múltiplos perfis.
 - Câmera/OCR de listas (colar múltiplos endereços também).
-- Ajuste manual do marcador no mapa (o autocomplete já está entregue).
+- Destino padrão global (já há destino final por dia).
 - Finalização rica: horários reais, atrasos, resumo, replanejar pendências.
 - "Estou atrasado" + recalcular restante durante execução.
-- Offline de visualização; compartilhamento (view externa).
+- Offline de visualização; compartilhamento (view externa) — ✅ entregue.
 - Meus Locais avançado: favoritos, recentes, categorias (depende da fatia 37–41).
 - Pré-lançamento: landing, domínio, monitoramento, analytics.
 
@@ -489,4 +489,9 @@ dia/atividade. Exclusão hoje é física (cascade) + auditada.
 | próx. | Fatia **Meus Locais** (tarefas 37–41 + fluxo "salvar de parada" + "usar hoje" + "preencher com local salvo") — ✅ entregue |
 | próx. | Fatia **Autocomplete de endereço** (28 + 33/34) — dropdown ORS/Nominatim com debounce, lat/lng precisos, aviso "não encontrado" — ✅ entregue |
 | próx. | Fatia **Execução e finalização do dia** (117–119, 121, 124–125, 127–128 + settings de origem/horário) — horários reais, banner de atraso, recalculo do restante, resumo do dia, replanejamento de pendências para hoje — ✅ entregue |
-| pend. | Deploy Vercel (usuário adiciona o repo); teste real (Bloco 19) |
+| 2026-09-08 | Fatia **Perfil & preferências** (14–15, 17) + destino do dia (21) + ajuste do marcador no mapa (35) — `TransportMode`, `Tenant.profileType/transportMode`, motor `TRANSPORT_KMH`, `Day.end*`, página `/perfil`, picker arrastável — ✅ entregue |
+| 2026-09-08 | Fatia **Compartilhamento** (view externa) — `/share/[token]` read-only com token por dia + botão copiar link — ✅ entregue |
+| 2026-09-08 | Fatia **Recuperar senha** (13) — token único expirável (1h), e-mail via Resend (fallback de log em dev) — ✅ entregue |
+| 2026-09-08 | Fatia **Login Google** (11) — OAuth2 code + `id_token` verificado (jose/JWKS), criação de conta automática, env-gated — ✅ entregue |
+| 2026-09-08 | **Testes** — vitest: 12 testes (date/format/motor); motor com slot canônico para horários fixos e `formatDateLabel` lowercase — ✅ entregue |
+| pend. | Deploy Vercel (usuário adiciona o repo); ativar env Google/Resend; teste real (Bloco 19) |
