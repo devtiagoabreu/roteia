@@ -1,0 +1,237 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum PlanCode {
+  FREE
+  STARTER
+}
+
+enum Priority {
+  ESSENCIAL
+  ALTA
+  NORMAL
+  BAIXA
+}
+
+enum TimeType {
+  FIXO
+  JANELA
+  FLEXIVEL
+}
+
+enum DayStatus {
+  RASCUNHO
+  OTIMIZADO
+  EM_ANDAMENTO
+  CONCLUIDO
+}
+
+enum StopStatus {
+  PENDENTE
+  FEITO
+  PULADO
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  OPTIMIZE
+}
+
+model Tenant {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  plan      PlanCode  @default(FREE)
+  timezone  String    @default("America/Sao_Paulo")
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+
+  users       User[]
+  savedPlaces SavedPlace[]
+  activities  Activity[]
+  days        Day[]
+  sessions    Session[]
+  auditLogs   AuditLog[]
+
+  @@index([plan])
+}
+
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String
+  name         String
+  email        String
+  passwordHash String
+  role         Role      @default(MEMBER)
+  locale       String    @default("pt-BR")
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions Session[]
+  days     Day[]
+  auditLogs AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([email])
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  tenantId  String
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model SavedPlace {
+  id        String   @id @default(cuid())
+  tenantId  String
+  label     String
+  category  String?
+  address   String
+  lat       Float?
+  lng       Float?
+  notes     String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@index([tenantId])
+}
+
+model Activity {
+  id              String    @id @default(cuid())
+  tenantId        String
+  placeId         String?
+  title           String
+  category        String?
+  address         String?
+  lat             Float?
+  lng             Float?
+  priority        Priority  @default(NORMAL)
+  timeType        TimeType  @default(FLEXIVEL)
+  startAt         DateTime? @db.Timestamptz(3)
+  windowStart     DateTime? @db.Timestamptz(3)
+  windowEnd       DateTime? @db.Timestamptz(3)
+  durationMinutes Int       @default(30)
+  marginMinutes   Int       @default(10)
+  notes           String?
+  completedAt     DateTime? @db.Timestamptz(3)
+  version         Int       @default(0)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  place  SavedPlace? @relation(fields: [placeId], references: [id], onDelete: SetNull)
+  stops  DayStop[]
+
+  @@index([tenantId])
+  @@index([tenantId, priority])
+}
+
+model Day {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  userId               String?
+  date                 DateTime  @db.Date
+  name                 String?
+  status               DayStatus @default(RASCUNHO)
+  startAddress         String?
+  startLat             Float?
+  startLng             Float?
+  startTime            DateTime? @db.Timestamptz(3)
+  marginMinutes        Int       @default(10)
+  totalDistanceMeters  Int?
+  totalDurationMinutes Int?
+  routeJson            Json?
+  version              Int       @default(0)
+  createdAt            DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  stops  DayStop[]
+
+  @@unique([tenantId, date])
+  @@index([tenantId, date])
+}
+
+model DayStop {
+  id                        String     @id @default(cuid())
+  dayId                     String
+  activityId                String?
+  position                  Int
+  title                     String
+  notes                     String?
+  address                   String?
+  lat                       Float?
+  lng                       Float?
+  priority                  Priority   @default(NORMAL)
+  timeType                  TimeType   @default(FLEXIVEL)
+  startAt                   DateTime?  @db.Timestamptz(3)
+  windowStartAt             DateTime?  @db.Timestamptz(3)
+  windowEndAt               DateTime?  @db.Timestamptz(3)
+  plannedStartAt            DateTime?  @db.Timestamptz(3)
+  plannedEndAt              DateTime?  @db.Timestamptz(3)
+  durationMinutes           Int        @default(30)
+  marginMinutes             Int        @default(10)
+  distanceFromPreviousMeters Int?
+  travelMinutes             Int?
+  status                    StopStatus @default(PENDENTE)
+  conflict                  String?
+  version                   Int        @default(0)
+  createdAt                 DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime   @updatedAt @db.Timestamptz(3)
+
+  day      Day       @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  activity Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  @@unique([dayId, position])
+  @@index([dayId])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  tenantId   String
+  userId     String?
+  action     AuditAction
+  entityType String
+  entityId   String?
+  changes    Json?
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+}
