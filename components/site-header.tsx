@@ -20,6 +20,12 @@ export async function SiteHeader() {
             >
               Meus Dias
             </Link>
+            <Link
+              href="/places"
+              className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+            >
+              Meus Locais
+            </Link>
             <span className="hidden text-sm text-zinc-500 dark:text-zinc-400 sm:inline">
               {user.name}
             </span>

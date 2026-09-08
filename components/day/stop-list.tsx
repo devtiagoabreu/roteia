@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useState } from "react";
 import {
   DndContext,
   PointerSensor,
@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toggleStopStatusAction } from "@/app/actions/day";
+import { saveStopAsPlaceAction } from "@/app/actions/places";
 import { Badge, Button } from "@/components/ui";
 import { priorityLabels, timeTypeLabels } from "@/lib/validations";
 import type { StopDto } from "@/components/day/types";
@@ -69,15 +70,19 @@ function StopRow({
   tz,
   isLast,
   isNext,
+  saved,
   onRemove,
   onToggle,
+  onSave,
 }: {
   stop: StopDto;
   tz: string;
   isLast: boolean;
   isNext: boolean;
+  saved: boolean;
   onRemove: (id: string) => void;
   onToggle: (id: string, status: StopDto["status"]) => void;
+  onSave: (stop: StopDto) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: stop.id });
@@ -161,6 +166,21 @@ function StopRow({
 
         {navigateLinks(stop)}
 
+        {stop.address && !saved && (
+          <button
+            type="button"
+            onClick={() => onSave(stop)}
+            className="mt-1 text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+          >
+            Salvar local
+          </button>
+        )}
+        {saved && (
+          <span className="mt-1 block text-[11px] font-medium text-green-600 dark:text-green-400">
+            Local salvo ✓
+          </span>
+        )}
+
         {stop.conflict && (
           <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">
             ⚠ {stop.conflict}
@@ -234,6 +254,7 @@ export function StopList({
   );
 
   const [, startTransition] = useTransition();
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -252,6 +273,21 @@ export function StopList({
     startTransition(async () => {
       await toggleStopStatusAction(id, status);
       window.location.reload();
+    });
+  }
+
+  function handleSave(stop: StopDto) {
+    startTransition(async () => {
+      const res = await saveStopAsPlaceAction({
+        title: stop.title,
+        address: stop.address,
+        lat: stop.lat,
+        lng: stop.lng,
+        notes: stop.notes ?? null,
+      });
+      if (res.ok) {
+        setSavedIds((prev) => new Set(prev).add(stop.id));
+      }
     });
   }
 
@@ -274,8 +310,10 @@ export function StopList({
               tz={tz}
               isLast={index === stops.length - 1}
               isNext={index === nextIndex}
+              saved={savedIds.has(stop.id)}
               onRemove={onRemove}
               onToggle={handleToggle}
+              onSave={handleSave}
             />
           ))}
         </ol>

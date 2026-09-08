@@ -10,6 +10,7 @@ export type StopDto = {
   activityId: string | null;
   position: number;
   title: string;
+  notes: string | null;
   address: string | null;
   lat: number | null;
   lng: number | null;

@@ -49,6 +49,17 @@ export const activitySchema = z.object({
 
 export type ActivityInput = z.infer<typeof activitySchema>;
 
+export const placeSchema = z.object({
+  label: z.string().trim().min(2, "Informe um nome.").max(120),
+  category: z.string().trim().max(60).optional().or(z.literal("")),
+  address: z.string().trim().min(3, "Informe o endereço.").max(300),
+  lat: z.number().nullable().optional(),
+  lng: z.number().nullable().optional(),
+  notes: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
+export type PlaceInput = z.infer<typeof placeSchema>;
+
 export const priorityLabels: Record<Priority, string> = {
   ESSENCIAL: "Essencial",
   ALTA: "Alta",

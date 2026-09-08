@@ -10,6 +10,7 @@ import { Button, Card } from "@/components/ui";
 import { addDaysIso } from "@/lib/date";
 import { formatDistance, formatDuration } from "@/lib/format";
 import type { ActivityDto, DayDto, StopDto } from "@/components/day/types";
+import type { PlaceDto } from "@/components/places/types";
 
 const dayStatusLabels: Record<DayDto["status"], string> = {
   RASCUNHO: "rascunho",
@@ -22,6 +23,7 @@ export function DayPlanner({
   day,
   stops,
   activities,
+  savedPlaces,
   tz,
   dateIso,
   today,
@@ -29,6 +31,7 @@ export function DayPlanner({
   day: DayDto;
   stops: StopDto[];
   activities: ActivityDto[];
+  savedPlaces: PlaceDto[];
   tz: string;
   dateIso: string;
   today: string;
@@ -209,7 +212,12 @@ export function DayPlanner({
 
             {showAdd && (
               <Card className="mt-3">
-                <ActivityForm dayId={day.id} dateIso={dateIso} onCreated={() => setShowAdd(false)} />
+                <ActivityForm
+                  dayId={day.id}
+                  dateIso={dateIso}
+                  savedPlaces={savedPlaces}
+                  onCreated={() => setShowAdd(false)}
+                />
               </Card>
             )}
 

@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { todayIso, isValidDateIso, formatDateShort } from "@/lib/date";
 import { getDayWithStops, listOpenActivities } from "@/lib/day/service";
+import { listSavedPlaces } from "@/lib/places/service";
 import { DayPlanner } from "@/components/day/day-planner";
+import type { PlaceDto } from "@/components/places/types";
 import type {
   ActivityDto,
   DayDto,
@@ -17,6 +19,7 @@ function toStopDto(
     activityId: stop.activityId,
     position: stop.position,
     title: stop.title,
+    notes: stop.notes,
     address: stop.address,
     lat: stop.lat,
     lng: stop.lng,
@@ -55,6 +58,7 @@ export default async function HomePage({
     requested && isValidDateIso(requested) ? requested : today;
   const { day, stops } = await getDayWithStops(user.tenantId, dateIso);
   const activities = await listOpenActivities(user.tenantId);
+  const savedPlaces = await listSavedPlaces(user.tenantId);
 
   const dayDto: DayDto = {
     id: day.id,
@@ -78,11 +82,22 @@ export default async function HomePage({
     address: a.address,
   }));
 
+  const savedPlacesDto: PlaceDto[] = savedPlaces.map((p) => ({
+    id: p.id,
+    label: p.label,
+    category: p.category,
+    address: p.address,
+    notes: p.notes,
+    isFavorite: p.isFavorite,
+    lastUsedAt: p.lastUsedAt?.toISOString() ?? null,
+  }));
+
   return (
     <DayPlanner
       day={dayDto}
       stops={stopsDto}
       activities={activitiesDto}
+      savedPlaces={savedPlacesDto}
       tz={tz}
       dateIso={dateIso}
       today={today}

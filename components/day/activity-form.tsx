@@ -15,15 +15,19 @@ import {
   type ActivityActionResult,
 } from "@/app/actions/activity";
 import { addToDayAction } from "@/app/actions/day";
+import { markPlaceUsedAction } from "@/app/actions/places";
 import { Button, Input, Label, Select } from "@/components/ui";
+import type { PlaceDto } from "@/components/places/types";
 
 export function ActivityForm({
   dayId,
   dateIso,
+  savedPlaces = [],
   onCreated,
 }: {
   dayId: string;
   dateIso: string;
+  savedPlaces?: PlaceDto[];
   onCreated?: () => void;
 }) {
   const router = useRouter();
@@ -35,6 +39,8 @@ export function ActivityForm({
     handleSubmit,
     reset,
     watch,
+    setValue,
+    getValues,
     formState: { errors },
   } = useForm<ActivityInput>({
     resolver: zodResolver(activitySchema),
@@ -182,6 +188,34 @@ export function ActivityForm({
           Deixe em branco para marcar como flexível (sem local).
         </p>
       </div>
+
+      {savedPlaces.length > 0 && (
+        <div>
+          <Label htmlFor="savedPlace">Preencher com local salvo</Label>
+          <Select
+            id="savedPlace"
+            defaultValue=""
+            onChange={(e) => {
+              const id = e.target.value;
+              if (!id) return;
+              const place = savedPlaces.find((p) => p.id === id);
+              if (!place) return;
+              setValue("address", place.address, { shouldValidate: true });
+              if (!getValues("title")) setValue("title", place.label);
+              markPlaceUsedAction(place.id).catch(() => {});
+              e.target.value = "";
+            }}
+          >
+            <option value="">— selecione um local —</option>
+            {savedPlaces.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+                {p.address ? ` — ${p.address}` : ""}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div>
         <Label htmlFor="notes">Observações</Label>
