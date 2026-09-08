@@ -157,11 +157,32 @@ export async function setDaySettingsAction(
       startTime = timeInTz(dayIso, startTimeRaw, tz);
     }
 
+    const endAddress = String(formData.get("endAddress") ?? "").trim();
+    const endRawLat = Number(formData.get("endLat") ?? NaN);
+    const endRawLng = Number(formData.get("endLng") ?? NaN);
+    const hasEndPicked = Number.isFinite(endRawLat) && Number.isFinite(endRawLng);
+    let endLat: number | null = hasEndPicked ? endRawLat : null;
+    let endLng: number | null = hasEndPicked ? endRawLng : null;
+    if (endAddress && !hasEndPicked) {
+      try {
+        const point = await geocodeAddress(endAddress);
+        if (point) {
+          endLat = point.lat;
+          endLng = point.lng;
+        }
+      } catch {
+        // segue sem coordenadas
+      }
+    }
+
     await updateDaySettings(user.tenantId, dayId, {
       startAddress: address || null,
       startLat,
       startLng,
       startTime,
+      endAddress: endAddress || null,
+      endLat,
+      endLng,
     });
 
     revalidatePath("/");

@@ -46,6 +46,13 @@ enum StopStatus {
   PULADO
 }
 
+enum TransportMode {
+  CARRO
+  MOTO
+  BICICLETA
+  PEDESTRE
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -56,13 +63,15 @@ enum AuditAction {
 }
 
 model Tenant {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  plan      PlanCode  @default(FREE)
-  timezone  String    @default("America/Sao_Paulo")
-  createdAt DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  id             String        @id @default(cuid())
+  name           String
+  slug           String        @unique
+  plan           PlanCode      @default(FREE)
+  timezone       String        @default("America/Sao_Paulo")
+  profileType    String?       @default("PESSOAL")
+  transportMode  TransportMode @default(CARRO)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
 
   users       User[]
   savedPlaces SavedPlace[]
@@ -173,6 +182,10 @@ model Day {
   startLat             Float?
   startLng             Float?
   startTime            DateTime? @db.Timestamptz(3)
+  endAddress           String?
+  endLat               Float?
+  endLng               Float?
+  shareToken           String?   @unique
   marginMinutes        Int       @default(10)
   totalDistanceMeters  Int?
   totalDurationMinutes Int?

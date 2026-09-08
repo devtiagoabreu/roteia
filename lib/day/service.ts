@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { buildDayPlan, planInOrder } from "@/lib/day/optimize";
+import { buildDayPlan, planInOrder, TRANSPORT_KMH } from "@/lib/day/optimize";
 import { timeInTz, toDate } from "@/lib/date";
 import { ApiError } from "@/lib/api-error";
 import type { Day, DayStop } from "@/generated/prisma/client";
@@ -215,6 +215,7 @@ export async function optimizeDay(tenantId: string, dayId: string): Promise<Day>
       lng: day.startLng,
     },
     start,
+    TRANSPORT_KMH[day.tenant.transportMode],
   );
 
   const byKey = new Map(
@@ -305,6 +306,9 @@ export async function updateDaySettings(
     startLat: number | null;
     startLng: number | null;
     startTime: Date | null;
+    endAddress: string | null;
+    endLat: number | null;
+    endLng: number | null;
   },
 ): Promise<Day> {
   const day = await db.day.findFirst({ where: { id: dayId, tenantId } });
@@ -317,6 +321,9 @@ export async function updateDaySettings(
       startLat: opts.startLat,
       startLng: opts.startLng,
       startTime: opts.startTime,
+      endAddress: opts.endAddress,
+      endLat: opts.endLat,
+      endLng: opts.endLng,
       version: { increment: 1 },
     },
   });
@@ -329,7 +336,10 @@ export async function rescheduleRemainingStops(
 ): Promise<{ rescheduled: number } | null> {
   const day = await db.day.findFirst({
     where: { id: dayId, tenantId },
-    include: { stops: { orderBy: { position: "asc" } } },
+    include: {
+      stops: { orderBy: { position: "asc" } },
+      tenant: true,
+    },
   });
   if (!day) throw new ApiError("DAY_NOT_FOUND", 404, "Dia não encontrado.");
 
@@ -361,6 +371,7 @@ export async function rescheduleRemainingStops(
     })),
     origin,
     now,
+    TRANSPORT_KMH[day.tenant.transportMode],
   );
 
   const byKey = new Map(plan.ordered.map((p) => [p.key, p]));

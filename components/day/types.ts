@@ -48,6 +48,9 @@ export type DayDto = {
   startLat: number | null;
   startLng: number | null;
   startTime: string | null;
+  endAddress: string | null;
+  endLat: number | null;
+  endLng: number | null;
   marginMinutes: number;
   totalDistanceMeters: number | null;
   totalDurationMinutes: number | null;

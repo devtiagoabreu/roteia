@@ -128,8 +128,11 @@ export function DayPlanner({
       pts.push([day.startLat, day.startLng]);
     }
     for (const p of mapPoints) pts.push([p.lat, p.lng]);
+    if (day.endLat != null && day.endLng != null) {
+      pts.push([day.endLat, day.endLng]);
+    }
     return pts;
-  }, [mapPoints, day.startLat, day.startLng]);
+  }, [mapPoints, day.startLat, day.startLng, day.endLat, day.endLng]);
 
   const optimized = day.status === "OTIMIZADO" || day.status === "EM_ANDAMENTO";
 
@@ -236,6 +239,7 @@ export function DayPlanner({
               dateKey={dateIso}
               startAddress={day.startAddress}
               startTimeIso={day.startTime}
+              endAddress={day.endAddress}
               tz={tz}
             />
           </Card>

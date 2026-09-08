@@ -30,6 +30,15 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+export const profileSchema = z.object({
+  name,
+  timezone: z.string().min(1, "Selecione o fuso."),
+  profileType: z.string().min(1, "Selecione o perfil de uso."),
+  transportMode: z.enum(["CARRO", "MOTO", "BICICLETA", "PEDESTRE"]),
+});
+
+export type ProfileInput = z.infer<typeof profileSchema>;
+
 export const activitySchema = z.object({
   title: z.string().trim().min(2, "Informe o título.").max(140),
   category: z.string().trim().max(60).optional().or(z.literal("")),

@@ -40,6 +40,15 @@ type Entry = {
 
 const DEFAULT_MARGIN_MINUTES = 10;
 
+export const TRANSPORT_KMH = {
+  CARRO: 30,
+  MOTO: 35,
+  BICICLETA: 16,
+  PEDESTRE: 5,
+} as const;
+
+export type TransportMode = keyof typeof TRANSPORT_KMH;
+
 function formatTime(d: Date): string {
   return d
     .toLocaleTimeString("pt-BR", {
@@ -57,6 +66,7 @@ function totalMinutes(start: Date, end: Date): number {
 function travelStats(
   from: { lat?: number | null; lng?: number | null } | null,
   to: OptimizableStop,
+  kmh = 30,
 ): { distanceMeters: number; travelMinutes: number } {
   if (
     !from ||
@@ -72,7 +82,7 @@ function travelStats(
     { lat: to.lat, lng: to.lng },
   );
   const withStreets = distance * 1.3;
-  const travelMinutes = Math.round((withStreets / 1000 / 30) * 60);
+  const travelMinutes = Math.round((withStreets / 1000 / kmh) * 60);
   return { distanceMeters: Math.round(withStreets), travelMinutes };
 }
 
@@ -80,6 +90,7 @@ export function buildDayPlan(
   stops: OptimizableStop[],
   origin: { lat?: number | null; lng?: number | null } | null,
   start: Date,
+  kmh: number = TRANSPORT_KMH.CARRO,
 ): DayPlan {
   const order: Record<Priority, number> = {
     ESSENCIAL: 0,
@@ -130,7 +141,7 @@ export function buildDayPlan(
     let bestPlan: Entry[] | null = null;
 
     for (let i = 0; i <= entries.length; i++) {
-      const candidate = schedule(entries, stop, start, origin, i);
+      const candidate = schedule(entries, stop, start, origin, i, kmh);
       if (!candidate) continue;
       const last = candidate[candidate.length - 1]!;
       const score =
@@ -148,7 +159,7 @@ export function buildDayPlan(
     }
 
     const applied =
-      bestPlan ?? schedule(entries, stop, start, origin, entries.length);
+      bestPlan ?? schedule(entries, stop, start, origin, entries.length, kmh);
     entries.length = 0;
     entries.push(...(applied ?? []));
   }
@@ -168,6 +179,7 @@ function schedule(
   start: Date,
   origin: { lat?: number | null; lng?: number | null } | null,
   insertAt: number,
+  kmh: number = TRANSPORT_KMH.CARRO,
 ): Entry[] | null {
   const entries = entriesIn.map((e) => ({ ...e }));
   entries.splice(insertAt, 0, {
@@ -189,7 +201,7 @@ function schedule(
     let travel = { distanceMeters: 0, travelMinutes: 0 };
     const hasCoords = s.lat != null && s.lng != null;
     if (hasCoords) {
-      travel = travelStats(prevPoint, s);
+      travel = travelStats(prevPoint, s, kmh);
     }
     entry.travelMinutes = travel.travelMinutes;
     entry.distanceMeters = travel.distanceMeters;
@@ -282,10 +294,11 @@ export function planInOrder(
   stops: OptimizableStop[],
   origin: { lat?: number | null; lng?: number | null } | null,
   start: Date,
+  kmh: number = TRANSPORT_KMH.CARRO,
 ): DayPlan {
   let entries: Entry[] = [];
   for (const stop of stops) {
-    const applied = schedule(entries, stop, start, origin, entries.length);
+    const applied = schedule(entries, stop, start, origin, entries.length, kmh);
     if (applied) entries = applied;
   }
 

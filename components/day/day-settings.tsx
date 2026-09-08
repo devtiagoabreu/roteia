@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setDaySettingsAction } from "@/app/actions/day";
 import { AddressInput } from "@/components/address-input";
+import { CoordinatePicker } from "@/components/maps/coordinate-picker";
 import { Button, Input } from "@/components/ui";
 
 function defaultStartTime(startTimeIso: string | null, tz: string): string {
@@ -21,22 +22,34 @@ export function DaySettings({
   dateKey,
   startAddress,
   startTimeIso,
+  endAddress,
   tz,
 }: {
   dayId: string;
   dateKey: string;
   startAddress: string | null;
   startTimeIso: string | null;
+  endAddress: string | null;
   tz: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
   const [address, setAddress] = useState(startAddress ?? "");
   const [pickedCoords, setPickedCoords] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
+  const [showStartMap, setShowStartMap] = useState(false);
+
+  const [endAddr, setEndAddr] = useState(endAddress ?? "");
+  const [endPickedCoords, setEndPickedCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [showEndMap, setShowEndMap] = useState(false);
+
   const [startTime, setStartTime] = useState(() =>
     defaultStartTime(startTimeIso, tz),
   );
@@ -49,6 +62,11 @@ export function DaySettings({
       formData.set("lng", String(pickedCoords.lng));
     }
     formData.set("startTime", startTime);
+    formData.set("endAddress", endAddr);
+    if (endPickedCoords) {
+      formData.set("endLat", String(endPickedCoords.lat));
+      formData.set("endLng", String(endPickedCoords.lng));
+    }
 
     startTransition(async () => {
       const res = await setDaySettingsAction(dayId, formData);
@@ -58,12 +76,13 @@ export function DaySettings({
       }
       setError(null);
       setPickedCoords(null);
+      setEndPickedCoords(null);
       router.refresh();
     });
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div>
         <label htmlFor="day-start-address" className="mb-1.5 block text-sm font-medium">
           Origem / ponto de partida
@@ -81,8 +100,70 @@ export function DaySettings({
           }}
           placeholder="Ex.: Rua Duque de Caxias, 1000"
         />
+        {pickedCoords && (
+          <p className="mt-1 text-[11px] text-zinc-500">
+            {pickedCoords.lat.toFixed(5)}, {pickedCoords.lng.toFixed(5)}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowStartMap((v) => !v)}
+          className="mt-1 text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+        >
+          {showStartMap ? "Fechar ajuste no mapa" : "Ajustar no mapa"}
+        </button>
+        {showStartMap && (
+          <div className="mt-2">
+            <CoordinatePicker
+              coords={pickedCoords}
+              onPick={(c) => setPickedCoords(c)}
+            />
+          </div>
+        )}
         <p className="mt-1 text-[11px] text-zinc-400">
           Usado como início da rota na otimização.
+        </p>
+      </div>
+
+      <div>
+        <label htmlFor="day-end-address" className="mb-1.5 block text-sm font-medium">
+          Destino final (opcional)
+        </label>
+        <AddressInput
+          id="day-end-address"
+          value={endAddr}
+          onText={(v) => {
+            setEndPickedCoords(null);
+            setEndAddr(v);
+          }}
+          onPick={(s) => {
+            setEndPickedCoords({ lat: s.lat, lng: s.lng });
+            setEndAddr(s.label);
+          }}
+          placeholder="Ex.: sua casa / escritório"
+        />
+        {endPickedCoords && (
+          <p className="mt-1 text-[11px] text-zinc-500">
+            {endPickedCoords.lat.toFixed(5)}, {endPickedCoords.lng.toFixed(5)}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => setShowEndMap((v) => !v)}
+          className="mt-1 text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+        >
+          {showEndMap ? "Fechar ajuste no mapa" : "Ajustar no mapa"}
+        </button>
+        {showEndMap && (
+          <div className="mt-2">
+            <CoordinatePicker
+              coords={endPickedCoords}
+              onPick={(c) => setEndPickedCoords(c)}
+            />
+          </div>
+        )}
+        <p className="mt-1 text-[11px] text-zinc-400">
+          Aparece como ponto final no mapa do dia.
         </p>
       </div>
 
