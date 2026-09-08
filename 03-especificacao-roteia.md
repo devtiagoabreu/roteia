@@ -76,7 +76,7 @@ checklist). Status reflete o que está implementado em `03`.
 | D11 | Câmera/OCR de lista: incluir na família de prioridade alta; requer direção técnica (web OCR) antes de implementar | ☐ |
 | D12 | Compartilhamento e "rota em tempo real" vão para o roadmap | ☐ |
 | D13 | Busca/autocomplete de endereço = prioridade para a UX de endereço | 🟡 (geocode ao salvar; sem dropdown) |
-| D14 | Meus Locais: salvar lugar usado em paradas e reutilizar no formulário | 🟡 (em implementação) |
+| D14 | Meus Locais: salvar lugar usado em paradas e reutilizar no formulário | ✅ |
 
 ### 2.2 Motor de otimização (regras de produto)
 
@@ -172,11 +172,11 @@ Se isso funcionar bem, temos um produto para testar.
 | 34 | Endereço não encontrado | 🟡 (erro no formulário) |
 | 35 | Ajustar manualmente no mapa | ☐ |
 | 36 | Parada sem endereço | ✅ |
-| 37 | Salvar local (Meus Locais) | 🟡 (em implementação) |
-| 38 | Editar local salvo | ☐ |
-| 39 | Excluir local salvo | ☐ |
-| 40 | Locais recentes | ☐ |
-| 41 | Favoritos | ☐ |
+| 37 | Salvar local (Meus Locais) | ✅ |
+| 38 | Editar local salvo | ✅ |
+| 39 | Excluir local salvo | ✅ |
+| 40 | Locais recentes | 🟡 (lista ordenada por último uso) |
+| 41 | Favoritos | ✅ |
 
 ### 🔴 BLOCO 5 — CÂMERA (FOTOGRAFAR LISTA)
 
@@ -486,5 +486,5 @@ dia/atividade. Exclusão hoje é física (cascade) + auditada.
 | — | Fundação, autenticação, criação de dias, atividades, motor, mapa, navegação, execução, responsividade (Blocos 1,6,8–12,16) commitados |
 | — | Revisão profunda de 001/002; consolidação em `03` (este doc) |
 | — | `03-especificacao-roteia.md` criado; docs 01/02 mantidos como histórico |
-| próx. | Fatia **Meus Locais** (tarefas 37–41 + fluxo "salvar de parada") |
+| próx. | Fatia **Meus Locais** (tarefas 37–41 + fluxo "salvar de parada" + "usar hoje" + "preencher com local salvo") — ✅ entregue |
 | pend. | Deploy Vercel (usuário adiciona o repo); teste real (Bloco 19) |
