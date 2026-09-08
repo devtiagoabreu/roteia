@@ -44,7 +44,7 @@ export default async function DaysPage() {
       {days.length === 0 && (
         <p className="rounded-lg border border-zinc-200 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-800">
           Nenhum dia com atividades ainda. Volte ao{" "}
-          <Link href="/" className="font-medium text-blue-600 hover:underline">
+          <Link href="/dia" className="font-medium text-blue-600 hover:underline">
             Meu Dia
           </Link>{" "}
           para adicionar suas primeiras paradas.
@@ -116,7 +116,7 @@ function DayRow({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <Link
-          href={`/?date=${iso}`}
+          href={`/dia?date=${iso}`}
           className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
           Abrir

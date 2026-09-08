@@ -96,7 +96,7 @@ export async function registerAction(
     return { error: "Não foi possível criar a conta. Tente novamente." };
   }
 
-  redirect("/");
+  redirect("/dia");
 }
 
 export async function loginAction(
@@ -138,7 +138,7 @@ export async function loginAction(
     },
   });
 
-  redirect("/");
+  redirect("/dia");
 }
 
 export async function logoutAction(): Promise<void> {

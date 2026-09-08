@@ -100,7 +100,7 @@ export async function createActivityAction(
     },
   });
 
-  revalidatePath("/");
+  revalidatePath("/dia");
   return { ok: true, activity };
 }
 
@@ -118,5 +118,5 @@ export async function deleteActivityAction(
       entityId: activityId,
     },
   });
-  revalidatePath("/");
+  revalidatePath("/dia");
 }

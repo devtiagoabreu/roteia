@@ -35,7 +35,7 @@ export async function addToDayAction(
   try {
     const user = await requireUser();
     await addActivityToDay(user.tenantId, dayId, activityId);
-    revalidatePath("/");
+    revalidatePath("/dia");
     return { ok: true };
   } catch {
     return {
@@ -49,7 +49,7 @@ export async function removeStopAction(stopId: string): Promise<DayActionResult>
   try {
     const user = await requireUser();
     await removeDayStop(user.tenantId, stopId);
-    revalidatePath("/");
+    revalidatePath("/dia");
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível remover." };
@@ -63,7 +63,7 @@ export async function reorderStopsAction(
   try {
     const user = await requireUser();
     await reorderDayStops(user.tenantId, dayId, orderedStopIds);
-    revalidatePath("/");
+    revalidatePath("/dia");
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível reordenar." };
@@ -77,7 +77,7 @@ export async function toggleStopStatusAction(
   try {
     const user = await requireUser();
     await setStopStatus(user.tenantId, stopId, status);
-    revalidatePath("/");
+    revalidatePath("/dia");
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível atualizar." };
@@ -88,7 +88,7 @@ export async function optimizeDayAction(dayId: string): Promise<OptimizeResult> 
   try {
     const user = await requireUser();
     const day = await optimizeDay(user.tenantId, dayId);
-    revalidatePath("/");
+    revalidatePath("/dia");
     return { ok: true, day };
   } catch {
     return {
@@ -102,8 +102,8 @@ export async function deleteDayAction(dayId: string): Promise<DayActionResult> {
   try {
     const user = await requireUser();
     await deleteDay(user.tenantId, dayId);
-    revalidatePath("/");
-    revalidatePath("/days");
+    revalidatePath("/dia");
+    revalidatePath("/dia/days");
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível excluir o dia." };
@@ -186,7 +186,7 @@ export async function setDaySettingsAction(
       endLng,
     });
 
-    revalidatePath("/");
+    revalidatePath("/dia");
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível salvar as configurações." };
@@ -203,7 +203,7 @@ export async function rescheduleRemainingAction(
       dayId,
       new Date(),
     );
-    revalidatePath("/");
+    revalidatePath("/dia");
     return { ok: true, rescheduled: result?.rescheduled ?? 0 };
   } catch {
     return { ok: false, error: "Não foi possível recalcular os horários." };
@@ -222,8 +222,8 @@ export async function replanRemainingAction(
       sourceDayId,
       target.id,
     );
-    revalidatePath("/");
-    revalidatePath("/days");
+    revalidatePath("/dia");
+    revalidatePath("/dia/days");
     return { ok: true, moved };
   } catch {
     return { ok: false, error: "Não foi possível replanejar as pendências." };

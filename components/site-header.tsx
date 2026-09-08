@@ -7,7 +7,7 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
-      <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3">
+      <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3">
         <Link href="/" className="text-lg font-bold tracking-tight">
           Roteia
         </Link>
@@ -15,22 +15,16 @@ export async function SiteHeader() {
         {user ? (
           <div className="flex items-center gap-4">
             <Link
-              href="/days"
+              href="/dia"
               className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
             >
-              Meus Dias
+              Meu Dia
             </Link>
             <Link
-              href="/places"
+              href="/rota"
               className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
             >
-              Meus Locais
-            </Link>
-            <Link
-              href="/perfil"
-              className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
-            >
-              Perfil
+              Rota
             </Link>
             <span className="hidden text-sm text-zinc-500 dark:text-zinc-400 sm:inline">
               {user.name}

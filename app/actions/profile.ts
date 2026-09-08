@@ -79,8 +79,8 @@ export async function updateProfileAction(
       }),
     ]);
 
-    revalidatePath("/");
-    revalidatePath("/perfil");
+    revalidatePath("/dia");
+    revalidatePath("/dia/perfil");
     return { ok: true };
   } catch {
     return { error: "Não foi possível salvar o perfil." };

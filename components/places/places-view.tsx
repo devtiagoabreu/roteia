@@ -82,7 +82,7 @@ export function PlacesView({
             parada no{" "}
             <button
               type="button"
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/dia")}
               className="font-medium text-blue-600 hover:underline dark:text-blue-400"
             >
               Meu Dia

@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Roteia — planejador de rotas do dia",
+  title: "Roteia — programa o dia e a rota",
   description:
-    "Organize suas entregas, visitas e tarefas do dia com prioridades e rota otimizada.",
+    "Programe seu dia com prioridades e rota otimizada, e planeje entregas para motoristas.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

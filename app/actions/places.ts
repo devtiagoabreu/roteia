@@ -78,8 +78,8 @@ export async function createPlaceAction(
     const user = await requireUser();
     const data = await resolvePlaceData(user, formData);
     const place = await createSavedPlace(user.tenantId, user.id, data);
-    revalidatePath("/");
-    revalidatePath("/places");
+    revalidatePath("/dia");
+    revalidatePath("/dia/places");
     return { ok: true, place };
   } catch (error) {
     return {
@@ -112,8 +112,8 @@ export async function updatePlaceAction(
       placeId,
       data,
     );
-    revalidatePath("/");
-    revalidatePath("/places");
+    revalidatePath("/dia");
+    revalidatePath("/dia/places");
     return { ok: true, place };
   } catch (error) {
     return {
@@ -129,8 +129,8 @@ export async function deletePlaceAction(
   try {
     const user = await requireUser();
     await deleteSavedPlace(user.tenantId, user.id, placeId);
-    revalidatePath("/places");
-    revalidatePath("/");
+    revalidatePath("/dia/places");
+    revalidatePath("/dia");
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível excluir o local." };
@@ -143,7 +143,7 @@ export async function toggleFavoriteAction(
   try {
     const user = await requireUser();
     await toggleFavorite(user.tenantId, placeId);
-    revalidatePath("/places");
+    revalidatePath("/dia/places");
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível atualizar." };
@@ -169,7 +169,7 @@ export async function saveStopAsPlaceAction(input: {
       lng: input.lng,
       notes: input.notes,
     });
-    revalidatePath("/places");
+    revalidatePath("/dia/places");
     return { ok: true, place };
   } catch {
     return { ok: false, error: "Não foi possível salvar o local." };
@@ -207,8 +207,8 @@ export async function addPlaceToTodayAction(
     await addActivityToDay(user.tenantId, day.id, activity.id);
     await markPlaceUsed(user.tenantId, place.id);
 
-    revalidatePath("/");
-    revalidatePath("/places");
+    revalidatePath("/dia");
+    revalidatePath("/dia/places");
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível usar o local hoje." };

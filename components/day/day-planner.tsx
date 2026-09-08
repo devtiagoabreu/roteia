@@ -49,7 +49,7 @@ export function DayPlanner({
     .slice(0, 30);
 
   function goToDate(iso: string) {
-    router.push(`/?date=${iso}`);
+    router.push(`/dia?date=${iso}`);
   }
 
   function addExisting(activityId: string) {
