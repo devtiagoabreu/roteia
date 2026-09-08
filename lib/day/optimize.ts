@@ -128,8 +128,10 @@ export function buildDayPlan(
 
   const initial = [...anchors, ...windowed, ...flexible];
   const entries: Entry[] = [];
+  let mastersCount = 0;
 
   for (const stop of initial) {
+    const isMaster = stop.timeType === "FIXO" && stop.startAt != null;
     const scale: Record<TimeType, number> = {
       FIXO: 1000,
       JANELA: 100,
@@ -140,17 +142,24 @@ export function buildDayPlan(
     let bestScore = Infinity;
     let bestPlan: Entry[] | null = null;
 
-    for (let i = 0; i <= entries.length; i++) {
+    // Horários fixos mantêm o slot canônico (ordem cronológica já garantida
+    // pelo sort de `anchors`) e nada é inserido antes deles.
+    const probePositions = isMaster
+      ? [entries.length]
+      : Array.from(
+          { length: entries.length - mastersCount + 1 },
+          (_, i) => mastersCount + i,
+        );
+    if (isMaster) mastersCount++;
+
+    for (const i of probePositions) {
       const candidate = schedule(entries, stop, start, origin, i, kmh);
       if (!candidate) continue;
       const last = candidate[candidate.length - 1]!;
       const score =
         totalMinutes(start, last.plannedEnd) * 2 +
-        candidate.reduce(
-          (sum, e) => sum + e.distanceMeters,
-          stop.priority === "ESSENCIAL" ? 0 : 0,
-        ) +
-        scaleValue * (i === entries.length ? 1 : 0);
+        candidate.reduce((sum, e) => sum + e.distanceMeters, 0) +
+        scaleValue * (i === entries.length ? 0 : 1);
 
       if (score < bestScore && last.plannedEnd.getTime() >= start.getTime()) {
         bestScore = score;

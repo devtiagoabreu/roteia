@@ -26,7 +26,7 @@ export function formatDateLabel(
   }).format(date);
   if (todayIso) {
     const iso = date.toISOString().slice(0, 10);
-    if (iso === todayIso) return `Hoje, ${local.toLowerCase()}`;
+    if (iso === todayIso) return `hoje, ${local.toLowerCase()}`;
   }
   return local.toLowerCase();
 }
