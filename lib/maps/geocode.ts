@@ -1,5 +1,12 @@
 export type GeoPoint = { lat: number; lng: number };
 
+export type GeocodeResult = {
+  lat: number;
+  lng: number;
+  provider: "ors" | "nominatim";
+  confidence: number | null;
+};
+
 export type AddressSuggestion = {
   label: string;
   lat: number;
@@ -105,14 +112,22 @@ async function autocompleteWithNominatim(
 export async function geocodeAddress(
   address: string,
 ): Promise<GeoPoint | null> {
+  const result = await geocodeAddressDetailed(address);
+  if (!result) return null;
+  return { lat: result.lat, lng: result.lng };
+}
+
+export async function geocodeAddressDetailed(
+  address: string,
+): Promise<GeocodeResult | null> {
   const trimmed = address.trim();
   if (!trimmed) return null;
 
   const orsKey = process.env.ORS_API_KEY;
   if (orsKey) {
     try {
-      const point = await geocodeWithOrs(trimmed, orsKey);
-      if (point) return point;
+      const result = await geocodeWithOrs(trimmed, orsKey);
+      if (result) return result;
     } catch {
       // cai para o fallback
     }
@@ -124,7 +139,7 @@ export async function geocodeAddress(
 async function geocodeWithOrs(
   address: string,
   apiKey: string,
-): Promise<GeoPoint | null> {
+): Promise<GeocodeResult | null> {
   const url = new URL("https://api.openrouteservice.org/geocode/search");
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("text", address);
@@ -133,16 +148,25 @@ async function geocodeWithOrs(
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`ORS geocode ${res.status}`);
   const json = (await res.json()) as {
-    features?: Array<{ geometry?: { coordinates?: [number, number] } }>;
+    features?: Array<{
+      geometry?: { coordinates?: [number, number] };
+      properties?: { confidence?: number };
+    }>;
   };
-  const coords = json.features?.[0]?.geometry?.coordinates;
+  const feature = json.features?.[0];
+  const coords = feature?.geometry?.coordinates;
   if (!coords) return null;
-  return { lat: coords[1], lng: coords[0] };
+  return {
+    lat: coords[1],
+    lng: coords[0],
+    provider: "ors",
+    confidence: feature.properties?.confidence ?? null,
+  };
 }
 
 async function geocodeWithNominatim(
   address: string,
-): Promise<GeoPoint | null> {
+): Promise<GeocodeResult | null> {
   const url = new URL(NOMINATIM_URL);
   url.searchParams.set("q", address);
   url.searchParams.set("format", "json");
@@ -153,5 +177,10 @@ async function geocodeWithNominatim(
   const json = (await res.json()) as Array<{ lat: string; lon: string }>;
   const hit = json[0];
   if (!hit) return null;
-  return { lat: Number(hit.lat), lng: Number(hit.lon) };
+  return {
+    lat: Number(hit.lat),
+    lng: Number(hit.lon),
+    provider: "nominatim",
+    confidence: null,
+  };
 }

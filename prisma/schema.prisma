@@ -77,6 +77,8 @@ model Tenant {
   savedPlaces SavedPlace[]
   activities  Activity[]
   days        Day[]
+  customers   Customer[]
+  addresses   Address[]
   sessions    Session[]
   auditLogs   AuditLog[]
 
@@ -250,6 +252,60 @@ model DayStop {
 
   @@unique([dayId, position])
   @@index([dayId])
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  tenantId  String
+  code      String?
+  name      String
+  document  String?
+  email     String?
+  phone     String?
+  mobile    String?
+  notes     String?
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt DateTime? @db.Timestamptz(3)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  addresses Address[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([tenantId, active])
+  @@index([tenantId, name])
+}
+
+model Address {
+  id                String    @id @default(cuid())
+  tenantId          String
+  customerId        String
+  label             String?
+  raw               String
+  zipcode           String?
+  street            String?
+  number            String?
+  complement        String?
+  district          String?
+  city              String?
+  state             String?
+  country           String?   @default("BR")
+  lat               Float?
+  lng               Float?
+  geocodingProvider String?
+  confidence        Float?
+  geocodedAt        DateTime? @db.Timestamptz(3)
+  isPrimary         Boolean   @default(true)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([customerId])
 }
 
 model AuditLog {

@@ -69,6 +69,65 @@ export const placeSchema = z.object({
 
 export type PlaceInput = z.infer<typeof placeSchema>;
 
+const optionalText = (max: number) =>
+  z.string().trim().max(max).optional().or(z.literal(""));
+
+export const addressSchema = z.object({
+  label: optionalText(60),
+  raw: z.string().trim().min(3, "Informe o endereço.").max(300),
+  zipcode: optionalText(10),
+  street: optionalText(120),
+  number: optionalText(12),
+  complement: optionalText(120),
+  district: optionalText(80),
+  city: optionalText(80),
+  state: optionalText(2),
+  country: optionalText(2),
+  lat: z.number().nullable().optional(),
+  lng: z.number().nullable().optional(),
+});
+
+export type AddressInput = z.infer<typeof addressSchema>;
+
+export const customerSchema = z.object({
+  code: optionalText(30),
+  name: z.string().trim().min(2, "Informe o nome.").max(120),
+  document: optionalText(18),
+  email: z
+    .string()
+    .trim()
+    .email("E-mail inválido.")
+    .max(120)
+    .optional()
+    .or(z.literal("")),
+  phone: optionalText(20),
+  mobile: optionalText(20),
+  notes: optionalText(1000),
+});
+
+export type CustomerInput = z.infer<typeof customerSchema>;
+
+export const customerWithAddressSchema = z.object({
+  code: optionalText(30),
+  name: z.string().trim().min(2, "Informe o nome.").max(120),
+  document: optionalText(18),
+  email: z
+    .string()
+    .trim()
+    .email("E-mail inválido.")
+    .max(120)
+    .optional()
+    .or(z.literal("")),
+  phone: optionalText(20),
+  mobile: optionalText(20),
+  notes: optionalText(1000),
+  address: addressSchema,
+});
+
+export type CustomerWithAddressInput = z.infer<
+  typeof customerWithAddressSchema
+>;
+
 export const priorityLabels: Record<Priority, string> = {
   ESSENCIAL: "Essencial",
   ALTA: "Alta",

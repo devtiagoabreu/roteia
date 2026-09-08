@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -58,11 +59,19 @@ export default function RotaLandingPage() {
       </ol>
 
       <div className="mt-8 rounded-xl border border-dashed border-zinc-300 p-6 text-center dark:border-zinc-700">
-        <p className="text-sm font-medium">Em construção</p>
-        <p className="mt-1 text-sm text-zinc-500">
-          Em breve: cadastro de clientes com geocodificação e mapa. O login, a
-          conta, as preferências e o módulo Meu Dia seguem funcionando.
+        <p className="text-sm font-medium">
+          Comece pelo cadastro de clientes
         </p>
+        <p className="mt-1 text-sm text-zinc-500">
+          O registro permanente com geocodificação é a base para montar,
+          otimizar e executar suas rotas.
+        </p>
+        <Link
+          href="/rota/clientes"
+          className="mt-4 inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-85 dark:bg-zinc-100 dark:text-zinc-900"
+        >
+          Cadastrar clientes
+        </Link>
       </div>
     </main>
   );
