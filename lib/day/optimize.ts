@@ -153,26 +153,13 @@ export function buildDayPlan(
     entries.push(...(applied ?? []));
   }
 
-  const ordered: PlannedStop[] = entries.map((e) => ({
-    key: e.stop.key,
-    plannedStart: e.plannedStart,
-    plannedEnd: e.plannedEnd,
-    travelMinutes: e.travelMinutes,
-    distanceMeters: e.distanceMeters,
-    conflict: e.conflict,
-  }));
-
-  const last = entries[entries.length - 1];
-  const totalDurationMinutes =
-    entries.length > 0 && last
-      ? totalMinutes(start, last.plannedEnd)
-      : 0;
-  const totalDistanceMeters = entries.reduce(
-    (sum, e) => sum + e.distanceMeters,
-    0,
-  );
-
-  return { ordered, totalDistanceMeters, totalDurationMinutes };
+  const ordered = toPlanned(entries);
+  const stats = totalStats(entries, start);
+  return {
+    ordered,
+    totalDistanceMeters: stats.totalDistanceMeters,
+    totalDurationMinutes: stats.totalDurationMinutes,
+  };
 }
 
 function schedule(
@@ -257,4 +244,56 @@ export function hasCoord(
   s: { lat?: number | null; lng?: number | null },
 ): s is { lat: number; lng: number } {
   return s.lat != null && s.lng != null;
+}
+
+function toPlanned(entries: Entry[]): PlannedStop[] {
+  return entries.map((e) => ({
+    key: e.stop.key,
+    plannedStart: e.plannedStart,
+    plannedEnd: e.plannedEnd,
+    travelMinutes: e.travelMinutes,
+    distanceMeters: e.distanceMeters,
+    conflict: e.conflict,
+  }));
+}
+
+function totalStats(
+  entries: Entry[],
+  start: Date,
+): { totalDurationMinutes: number; totalDistanceMeters: number } {
+  const last = entries[entries.length - 1];
+  const totalDurationMinutes =
+    entries.length > 0 && last
+      ? totalMinutes(start, last.plannedEnd)
+      : 0;
+  const totalDistanceMeters = entries.reduce(
+    (sum, e) => sum + e.distanceMeters,
+    0,
+  );
+  return { totalDurationMinutes, totalDistanceMeters };
+}
+
+/**
+ * Agenda as paradas na ordem fornecida (sem reordenar),
+ * respeitando horários fixos/janelas e buscando o menor
+ * deslocamento; usado no recalculo do restante durante execução.
+ */
+export function planInOrder(
+  stops: OptimizableStop[],
+  origin: { lat?: number | null; lng?: number | null } | null,
+  start: Date,
+): DayPlan {
+  let entries: Entry[] = [];
+  for (const stop of stops) {
+    const applied = schedule(entries, stop, start, origin, entries.length);
+    if (applied) entries = applied;
+  }
+
+  const ordered = toPlanned(entries);
+  const stats = totalStats(entries, start);
+  return {
+    ordered,
+    totalDistanceMeters: stats.totalDistanceMeters,
+    totalDurationMinutes: stats.totalDurationMinutes,
+  };
 }

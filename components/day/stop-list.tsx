@@ -162,6 +162,12 @@ function StopRow({
             {stop.windowStartAt &&
               ` · janela ${formatTime(stop.windowStartAt, tz)}–${formatTime(stop.windowEndAt, tz)}`}
           </span>
+          {(stop.startedAt || stop.finishedAt) && (
+            <span className="text-zinc-400">
+              {stop.startedAt && ` · iniciada às ${formatTime(stop.startedAt, tz)}`}
+              {stop.finishedAt && ` · concluída às ${formatTime(stop.finishedAt, tz)}`}
+            </span>
+          )}
         </div>
 
         {navigateLinks(stop)}

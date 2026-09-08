@@ -8,8 +8,15 @@ import {
   optimizeDay,
   removeDayStop,
   reorderDayStops,
+  replanPendingToToday,
+  rescheduleRemainingStops,
   setStopStatus,
+  updateDaySettings,
+  getOrCreateDay,
 } from "@/lib/day/service";
+import { db } from "@/lib/db";
+import { todayIso, timeInTz } from "@/lib/date";
+import { geocodeAddress } from "@/lib/maps/geocode";
 import type { Day, DayStop } from "@/generated/prisma/client";
 
 export type DayActionResult = {
@@ -99,5 +106,104 @@ export async function deleteDayAction(dayId: string): Promise<DayActionResult> {
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível excluir o dia." };
+  }
+}
+
+export type DaySettingsResult = { ok: boolean; error?: string };
+export type RescheduleResult = { ok: boolean; error?: string; rescheduled?: number; moved?: number };
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export async function setDaySettingsAction(
+  dayId: string,
+  formData: FormData,
+): Promise<DaySettingsResult> {
+  try {
+    const user = await requireUser();
+    const tz = user.tenant.timezone;
+
+    const day = await db.day.findFirst({
+      where: { id: dayId, tenantId: user.tenantId },
+    });
+    if (!day) return { ok: false, error: "Dia não encontrado." };
+    const dayIso = day.date.toISOString().slice(0, 10);
+
+    const address = String(formData.get("address") ?? "").trim();
+
+    const rawLat = Number(formData.get("lat") ?? NaN);
+    const rawLng = Number(formData.get("lng") ?? NaN);
+    const hasPickedCoords = Number.isFinite(rawLat) && Number.isFinite(rawLng);
+
+    let startLat: number | null = hasPickedCoords ? rawLat : null;
+    let startLng: number | null = hasPickedCoords ? rawLng : null;
+    if (address && !hasPickedCoords) {
+      try {
+        const point = await geocodeAddress(address);
+        if (point) {
+          startLat = point.lat;
+          startLng = point.lng;
+        }
+      } catch {
+        // segue sem coordenadas
+      }
+    }
+
+    const startTimeRaw = String(formData.get("startTime") ?? "");
+    let startTime: Date | null = null;
+    if (startTimeRaw) {
+      if (!HHMM.test(startTimeRaw)) {
+        return { ok: false, error: "Horário de início inválido." };
+      }
+      startTime = timeInTz(dayIso, startTimeRaw, tz);
+    }
+
+    await updateDaySettings(user.tenantId, dayId, {
+      startAddress: address || null,
+      startLat,
+      startLng,
+      startTime,
+    });
+
+    revalidatePath("/");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Não foi possível salvar as configurações." };
+  }
+}
+
+export async function rescheduleRemainingAction(
+  dayId: string,
+): Promise<RescheduleResult> {
+  try {
+    const user = await requireUser();
+    const result = await rescheduleRemainingStops(
+      user.tenantId,
+      dayId,
+      new Date(),
+    );
+    revalidatePath("/");
+    return { ok: true, rescheduled: result?.rescheduled ?? 0 };
+  } catch {
+    return { ok: false, error: "Não foi possível recalcular os horários." };
+  }
+}
+
+export async function replanRemainingAction(
+  sourceDayId: string,
+): Promise<RescheduleResult> {
+  try {
+    const user = await requireUser();
+    const tz = user.tenant.timezone;
+    const target = await getOrCreateDay(user.tenantId, todayIso(tz));
+    const moved = await replanPendingToToday(
+      user.tenantId,
+      sourceDayId,
+      target.id,
+    );
+    revalidatePath("/");
+    revalidatePath("/days");
+    return { ok: true, moved };
+  } catch {
+    return { ok: false, error: "Não foi possível replanejar as pendências." };
   }
 }

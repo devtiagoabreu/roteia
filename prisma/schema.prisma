@@ -211,6 +211,8 @@ model DayStop {
   distanceFromPreviousMeters Int?
   travelMinutes             Int?
   status                    StopStatus @default(PENDENTE)
+  startedAt                 DateTime?  @db.Timestamptz(3)
+  finishedAt                DateTime?  @db.Timestamptz(3)
   conflict                  String?
   version                   Int        @default(0)
   createdAt                 DateTime   @default(now()) @db.Timestamptz(3)

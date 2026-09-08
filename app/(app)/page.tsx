@@ -34,6 +34,8 @@ function toStopDto(
     windowEndAt: stop.windowEndAt?.toISOString() ?? null,
     plannedStartAt: stop.plannedStartAt?.toISOString() ?? null,
     plannedEndAt: stop.plannedEndAt?.toISOString() ?? null,
+    startedAt: stop.startedAt?.toISOString() ?? null,
+    finishedAt: stop.finishedAt?.toISOString() ?? null,
     conflict: stop.conflict,
   };
 }
@@ -65,10 +67,14 @@ export default async function HomePage({
     date: dateIso,
     displayDate: formatDateShort(day.date, tz),
     status: day.status,
+    startAddress: day.startAddress,
     startLat: day.startLat,
     startLng: day.startLng,
+    startTime: day.startTime?.toISOString() ?? null,
+    marginMinutes: day.marginMinutes,
     totalDistanceMeters: day.totalDistanceMeters,
     totalDurationMinutes: day.totalDurationMinutes,
+    nowIso: new Date().toISOString(),
   };
 
   const stopsDto = stops.map(toStopDto);

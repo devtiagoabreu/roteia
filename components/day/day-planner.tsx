@@ -2,8 +2,9 @@
 
 import { useMemo, useTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { reorderStopsAction, removeStopAction, optimizeDayAction, addToDayAction } from "@/app/actions/day";
+import { addToDayAction, optimizeDayAction, removeStopAction, replanRemainingAction, reorderStopsAction, rescheduleRemainingAction } from "@/app/actions/day";
 import { ActivityForm } from "@/components/day/activity-form";
+import { DaySettings } from "@/components/day/day-settings";
 import { StopList } from "@/components/day/stop-list";
 import { MapPanel } from "@/components/day/map-panel";
 import { Button, Card } from "@/components/ui";
@@ -38,8 +39,9 @@ export function DayPlanner({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [optimizeError, setOptimizeError] = useState<string | null>(null);
+  const [bannerError, setBannerError] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const available = activities
     .filter((a) => !stops.some((s) => s.activityId === a.id))
@@ -71,10 +73,28 @@ export function DayPlanner({
   }
 
   function handleOptimize() {
-    setOptimizeError(null);
+    setBannerError(null);
     startTransition(async () => {
       const res = await optimizeDayAction(day.id);
-      if (!res.ok) setOptimizeError(res.error);
+      if (!res.ok) setBannerError(res.error);
+      router.refresh();
+    });
+  }
+
+  function handleReschedule() {
+    setBannerError(null);
+    startTransition(async () => {
+      const res = await rescheduleRemainingAction(day.id);
+      if (!res.ok) setBannerError(res.error ?? "Não foi possível recalcular.");
+      router.refresh();
+    });
+  }
+
+  function handleReplan() {
+    setBannerError(null);
+    startTransition(async () => {
+      const res = await replanRemainingAction(day.id);
+      if (!res.ok) setBannerError(res.error ?? "Não foi possível replanejar.");
       router.refresh();
     });
   }
@@ -112,6 +132,50 @@ export function DayPlanner({
   }, [mapPoints, day.startLat, day.startLng]);
 
   const optimized = day.status === "OTIMIZADO" || day.status === "EM_ANDAMENTO";
+
+  const [mountNowMs] = useState(() => Date.now());
+  const nowMs = day.nowIso ? new Date(day.nowIso).getTime() : mountNowMs;
+  const nextStop = useMemo(
+    () =>
+      stops.find(
+        (s) => s.status === "PENDENTE" || s.status === "EM_ANDAMENTO",
+      ) ?? null,
+    [stops],
+  );
+  const isLate =
+    nextStop?.plannedStartAt != null &&
+    new Date(nextStop.plannedStartAt).getTime() < nowMs - 60_000;
+
+  const doneCount = stops.filter((s) => s.status === "FEITO").length;
+  const skippedCount = stops.filter((s) => s.status === "PULADO").length;
+  const remainingCount = stops.length - doneCount - skippedCount;
+  const concluded = day.status === "CONCLUIDO";
+  const isPast = dateIso < today;
+
+  const fmtTime = (iso: string | null) =>
+    iso
+      ? new Intl.DateTimeFormat("pt-BR", {
+          timeZone: tz,
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }).format(new Date(iso))
+      : "—";
+
+  const startedAtMs = stops.reduce<number | null>((acc, s) => {
+    if (!s.startedAt) return acc;
+    const t = new Date(s.startedAt).getTime();
+    return acc == null || t < acc ? t : acc;
+  }, null);
+  const finishedAtMs = stops.reduce<number | null>((acc, s) => {
+    if (!s.finishedAt) return acc;
+    const t = new Date(s.finishedAt).getTime();
+    return acc == null || t > acc ? t : acc;
+  }, null);
+  const realDurationMinutes =
+    startedAtMs != null && finishedAtMs != null
+      ? Math.max(0, Math.round((finishedAtMs - startedAtMs) / 60000))
+      : null;
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
@@ -151,8 +215,37 @@ export function DayPlanner({
         </div>
       </div>
 
+      <section className="mb-4">
+        <button
+          type="button"
+          onClick={() => setShowSettings((v) => !v)}
+          className="flex w-full items-center justify-between rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300"
+        >
+          {showSettings ? "Fechar configurações" : "Configurações do dia (origem e horário)"}
+          <span className="text-xs text-zinc-400">
+            {day.startTime ? fmtTime(day.startTime) : "08:00"}
+            {day.startAddress ? ` · ${day.startAddress}` : ""}
+          </span>
+        </button>
+
+        {showSettings && (
+          <Card className="mt-3 p-4">
+            <DaySettings
+              key={`${day.id}-${dateIso}`}
+              dayId={day.id}
+              dateKey={dateIso}
+              startAddress={day.startAddress}
+              startTimeIso={day.startTime}
+              tz={tz}
+            />
+          </Card>
+        )}
+      </section>
+
       <div className="mb-4 text-right text-xs text-zinc-500">
-        {stops.length} {stops.length === 1 ? "parada" : "paradas"}
+        <span>
+          {doneCount} feitas · {remainingCount} restantes · {skippedCount} puladas
+        </span>
         {optimized && day.totalDistanceMeters != null && (
           <>
             {" · "}
@@ -161,14 +254,63 @@ export function DayPlanner({
         )}
       </div>
 
-      {optimizeError && (
+      {bannerError && (
         <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
-          {optimizeError}
+          {bannerError}
         </p>
+      )}
+
+      {!concluded && isLate && nextStop && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950">
+          <div>
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              Você está atrasado
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Próxima parada: {nextStop.title} — prevista para{" "}
+              {fmtTime(nextStop.plannedStartAt)}.
+            </p>
+          </div>
+          <Button
+            onClick={handleReschedule}
+            disabled={pending}
+            className="px-3 py-1.5 text-xs"
+          >
+            {pending ? "Recalculando…" : "Recalcular horários restantes"}
+          </Button>
+        </div>
       )}
 
       <div className="lg:grid lg:grid-cols-[1fr_400px] lg:gap-6">
         <div className="min-w-0">
+          {concluded && (
+            <Card className="mb-4 p-4">
+              <h2 className="text-sm font-semibold">Resumo do dia</h2>
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                <dt className="text-xs text-zinc-500">Concluídas</dt>
+                <dd className="text-right font-medium">{doneCount}</dd>
+                <dt className="text-xs text-zinc-500">Puladas</dt>
+                <dd className="text-right font-medium">{skippedCount}</dd>
+                <dt className="text-xs text-zinc-500">Início</dt>
+                <dd className="text-right font-medium">{fmtTime(startedAtMs ? new Date(startedAtMs).toISOString() : null)}</dd>
+                <dt className="text-xs text-zinc-500">Fim</dt>
+                <dd className="text-right font-medium">{fmtTime(finishedAtMs ? new Date(finishedAtMs).toISOString() : null)}</dd>
+                <dt className="text-xs text-zinc-500">Duração real</dt>
+                <dd className="text-right font-medium">
+                  {realDurationMinutes != null ? formatDuration(realDurationMinutes) : "—"}
+                </dd>
+                <dt className="text-xs text-zinc-500">Duração planejada</dt>
+                <dd className="text-right font-medium">
+                  {formatDuration(day.totalDurationMinutes)}
+                </dd>
+                <dt className="text-xs text-zinc-500">Distância</dt>
+                <dd className="text-right font-medium">
+                  {formatDistance(day.totalDistanceMeters)}
+                </dd>
+              </dl>
+            </Card>
+          )}
+
           {stops.length > 0 ? (
             <StopList
               stops={stops}
@@ -197,6 +339,16 @@ export function DayPlanner({
               <p className="mt-2 text-center text-[11px] text-zinc-400">
                 Mantém essenciais e horários fixos; ajusta as flexíveis para encurtar o caminho.
               </p>
+
+              {isPast && !concluded && remainingCount > 0 && (
+                <Button
+                  onClick={handleReplan}
+                  disabled={pending}
+                  className="mt-3 w-full py-2.5"
+                >
+                  {pending ? "Replanejando…" : `Replanejar pendências (${remainingCount}) para hoje`}
+                </Button>
+              )}
             </div>
           )}
 

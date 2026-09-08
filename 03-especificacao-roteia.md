@@ -280,23 +280,23 @@ Se isso funcionar bem, temos um produto para testar.
 | 114 | "Cheguei" | ✅ |
 | 115 | "Concluído" | ✅ |
 | 116 | "Pular" | ✅ |
-| 117 | Reorganizar restante | 🟡 |
-| 118 | "Estou atrasado" | ☐ |
-| 119 | Recalcular restante | ☐ |
+| 117 | Reorganizar restante | ✅ (recalculo dos horários restantes mantendo ordem; reordenação manual disponível) |
+| 118 | "Estou atrasado" | ✅ (banner de atraso na próxima parada) |
+| 119 | Recalcular restante | ✅ (reagenda restantes a partir da parada atual) |
 | 120 | Adicionar parada durante execução | 🟡 (adiciona e reordena) |
 
 ### 🔴 BLOCO 13 — FINALIZAÇÃO
 
 | # | Tarefa | Status |
 |---|---|---|
-| 121 | Registrar horários reais | ☐ |
+| 121 | Registrar horários reais | ✅ (iniciada às / concluída às em cada parada) |
 | 122 | Registrar concluídas | ✅ |
 | 123 | Registrar puladas | ✅ |
-| 124 | Registrar atrasos | ☐ |
-| 125 | Resumo do dia | 🟡 (contagem/totais na tela) |
+| 124 | Registrar atrasos | ✅ (banner "Você está atrasado" + recalculo) |
+| 125 | Resumo do dia | ✅ (card resumo ao concluir) |
 | 126 | Dia concluído | ✅ (automático) |
-| 127 | Dia incompleto | 🟡 |
-| 128 | Replanejar pendências | ☐ |
+| 127 | Dia incompleto | ✅ (dias passados com pendências mostram replanejamento) |
+| 128 | Replanejar pendências | ✅ (copia pendências para hoje) |
 
 ### 🔴 BLOCO 14 — COMPARTILHAMENTO
 
@@ -488,4 +488,5 @@ dia/atividade. Exclusão hoje é física (cascade) + auditada.
 | — | `03-especificacao-roteia.md` criado; docs 01/02 mantidos como histórico |
 | próx. | Fatia **Meus Locais** (tarefas 37–41 + fluxo "salvar de parada" + "usar hoje" + "preencher com local salvo") — ✅ entregue |
 | próx. | Fatia **Autocomplete de endereço** (28 + 33/34) — dropdown ORS/Nominatim com debounce, lat/lng precisos, aviso "não encontrado" — ✅ entregue |
+| próx. | Fatia **Execução e finalização do dia** (117–119, 121, 124–125, 127–128 + settings de origem/horário) — horários reais, banner de atraso, recalculo do restante, resumo do dia, replanejamento de pendências para hoje — ✅ entregue |
 | pend. | Deploy Vercel (usuário adiciona o repo); teste real (Bloco 19) |

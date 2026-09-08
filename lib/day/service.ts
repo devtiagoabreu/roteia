@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { buildDayPlan } from "@/lib/day/optimize";
+import { buildDayPlan, planInOrder } from "@/lib/day/optimize";
 import { timeInTz, toDate } from "@/lib/date";
 import { ApiError } from "@/lib/api-error";
 import type { Day, DayStop } from "@/generated/prisma/client";
@@ -132,7 +132,24 @@ export async function setStopStatus(
   if (!stop) throw new ApiError("STOP_NOT_FOUND", 404);
 
   await db.$transaction(async (tx) => {
-    await tx.dayStop.update({ where: { id: stopId }, data: { status } });
+    await tx.dayStop.update({
+      where: { id: stopId },
+      data: {
+        status,
+        startedAt:
+          status === "EM_ANDAMENTO"
+            ? stop.startedAt ?? new Date()
+            : status === "PENDENTE"
+              ? null
+              : stop.startedAt,
+        finishedAt:
+          status === "FEITO"
+            ? new Date()
+            : status === "PENDENTE"
+              ? null
+              : stop.finishedAt,
+      },
+    });
     if (status === "FEITO") {
       await tx.activity
         .updateMany({
@@ -278,4 +295,165 @@ export async function deleteDay(
   const day = await db.day.findFirst({ where: { id: dayId, tenantId } });
   if (!day) throw new ApiError("DAY_NOT_FOUND", 404, "Dia não encontrado.");
   await db.day.delete({ where: { id: dayId } });
+}
+
+export async function updateDaySettings(
+  tenantId: string,
+  dayId: string,
+  opts: {
+    startAddress: string | null;
+    startLat: number | null;
+    startLng: number | null;
+    startTime: Date | null;
+  },
+): Promise<Day> {
+  const day = await db.day.findFirst({ where: { id: dayId, tenantId } });
+  if (!day) throw new ApiError("DAY_NOT_FOUND", 404, "Dia não encontrado.");
+
+  return db.day.update({
+    where: { id: dayId },
+    data: {
+      startAddress: opts.startAddress,
+      startLat: opts.startLat,
+      startLng: opts.startLng,
+      startTime: opts.startTime,
+      version: { increment: 1 },
+    },
+  });
+}
+
+export async function rescheduleRemainingStops(
+  tenantId: string,
+  dayId: string,
+  now: Date,
+): Promise<{ rescheduled: number } | null> {
+  const day = await db.day.findFirst({
+    where: { id: dayId, tenantId },
+    include: { stops: { orderBy: { position: "asc" } } },
+  });
+  if (!day) throw new ApiError("DAY_NOT_FOUND", 404, "Dia não encontrado.");
+
+  const stops = day.stops;
+  const remaining = stops.filter(
+    (s) => s.status === "PENDENTE" || s.status === "EM_ANDAMENTO",
+  );
+  if (remaining.length === 0) return null;
+
+  const firstIndex = stops.findIndex((s) => s.id === remaining[0]!.id);
+  const prev = firstIndex > 0 ? stops[firstIndex - 1] : null;
+  const origin =
+    prev != null && prev.lat != null && prev.lng != null
+      ? { lat: prev.lat, lng: prev.lng }
+      : { lat: day.startLat, lng: day.startLng };
+
+  const plan = planInOrder(
+    remaining.map((s) => ({
+      key: s.id,
+      lat: s.lat,
+      lng: s.lng,
+      priority: s.priority,
+      timeType: s.timeType,
+      startAt: s.startAt,
+      windowStart: s.windowStartAt,
+      windowEnd: s.windowEndAt,
+      durationMinutes: s.durationMinutes,
+      marginMinutes: s.marginMinutes,
+    })),
+    origin,
+    now,
+  );
+
+  const byKey = new Map(plan.ordered.map((p) => [p.key, p]));
+
+  await db.$transaction(async (tx) => {
+    for (const stop of remaining) {
+      const planned = byKey.get(stop.id);
+      await tx.dayStop.update({
+        where: { id: stop.id },
+        data: {
+          plannedStartAt: planned?.plannedStart ?? stop.plannedStartAt,
+          plannedEndAt: planned?.plannedEnd ?? stop.plannedEndAt,
+          travelMinutes: planned?.travelMinutes ?? stop.travelMinutes,
+          distanceFromPreviousMeters:
+            planned?.distanceMeters ?? stop.distanceFromPreviousMeters,
+          conflict: planned?.conflict ?? stop.conflict,
+        },
+      });
+    }
+    await tx.day.update({
+      where: { id: dayId },
+      data: {
+        status: "EM_ANDAMENTO",
+        totalDurationMinutes: plan.totalDurationMinutes,
+        version: { increment: 1 },
+      },
+    });
+  });
+
+  await db.auditLog.create({
+    data: {
+      tenantId,
+      action: "UPDATE",
+      entityType: "Day",
+      entityId: dayId,
+    },
+  });
+
+  return { rescheduled: remaining.length };
+}
+
+export async function replanPendingToToday(
+  tenantId: string,
+  sourceDayId: string,
+  targetDayId: string,
+): Promise<number> {
+  const source = await db.day.findFirst({
+    where: { id: sourceDayId, tenantId },
+    include: { stops: { orderBy: { position: "asc" } } },
+  });
+  if (!source) throw new ApiError("DAY_NOT_FOUND", 404, "Dia não encontrado.");
+
+  const pending = source.stops.filter(
+    (s) => s.status === "PENDENTE" || s.status === "EM_ANDAMENTO",
+  );
+  if (pending.length === 0) return 0;
+
+  const { _max } = await db.dayStop.aggregate({
+    where: { dayId: targetDayId },
+    _max: { position: true },
+  });
+  let position = (_max.position ?? -1) + 1;
+
+  await db.$transaction(async (tx) => {
+    for (const stop of pending) {
+      await tx.dayStop.create({
+        data: {
+          dayId: targetDayId,
+          activityId: stop.activityId,
+          position: position++,
+          title: stop.title,
+          notes: stop.notes,
+          address: stop.address,
+          lat: stop.lat,
+          lng: stop.lng,
+          priority: stop.priority,
+          timeType: stop.timeType,
+          startAt: stop.startAt,
+          windowStartAt: stop.windowStartAt,
+          windowEndAt: stop.windowEndAt,
+          plannedStartAt: null,
+          plannedEndAt: null,
+          durationMinutes: stop.durationMinutes,
+          marginMinutes: stop.marginMinutes,
+          status: "PENDENTE",
+        },
+      });
+      await tx.dayStop.update({
+        where: { id: stop.id },
+        data: { status: "PULADO" },
+      });
+    }
+  });
+
+  return pending.length;
 }

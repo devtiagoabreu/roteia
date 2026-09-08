@@ -25,6 +25,8 @@ export type StopDto = {
   windowEndAt: string | null;
   plannedStartAt: string | null;
   plannedEndAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
   conflict: string | null;
 };
 
@@ -42,8 +44,12 @@ export type DayDto = {
   date: string;
   displayDate: string;
   status: DayStatus;
+  startAddress: string | null;
   startLat: number | null;
   startLng: number | null;
+  startTime: string | null;
+  marginMinutes: number;
   totalDistanceMeters: number | null;
   totalDurationMinutes: number | null;
+  nowIso: string | null;
 };
