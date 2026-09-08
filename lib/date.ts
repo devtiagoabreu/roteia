@@ -19,6 +19,20 @@ export function addDaysIso(iso: string, days: number): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+export function isValidDateIso(iso: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return false;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  const date = new Date(y, m - 1, d);
+  return (
+    date.getFullYear() === y &&
+    date.getMonth() === m - 1 &&
+    date.getDate() === d
+  );
+}
+
 /**
  * Interpreta "HH:MM" como um instante absoluto no fuso do tenant.
  * Sem dependências externas; assume offset fixo (ex.: America/Sao_Paulo => -03:00).

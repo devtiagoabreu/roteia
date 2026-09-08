@@ -18,6 +18,7 @@ export type MapPoint = {
   lng: number;
   index: number;
   done?: boolean;
+  next?: boolean;
 };
 
 function FitBounds({ points }: { points: Array<[number, number]> }) {
@@ -30,15 +31,17 @@ function FitBounds({ points }: { points: Array<[number, number]> }) {
   return null;
 }
 
-function markerIcon(index: number, done?: boolean) {
+function markerIcon(index: number, done?: boolean, next?: boolean) {
+  const bg = next ? "#f59e0b" : done ? "#10b981" : "#18181b";
+  const ring = next ? "4px solid #fde68a" : "2px solid #fff";
   return L.divIcon({
     className: "",
     html: `<div style="
         display:flex;align-items:center;justify-content:center;
         width:26px;height:26px;border-radius:50%;
-        background:${done ? "#10b981" : "#18181b"};
+        background:${bg};
         color:#fff;font-size:12px;font-weight:700;
-        border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);
+        border:${ring};box-shadow:0 2px 6px rgba(0,0,0,.35);
       ">${index + 1}</div>`,
     iconSize: [26, 26],
     iconAnchor: [13, 13],
@@ -48,9 +51,11 @@ function markerIcon(index: number, done?: boolean) {
 export function LeafletMap({
   points,
   itinerary,
+  className,
 }: {
   points: MapPoint[];
   itinerary: Array<[number, number]>;
+  className?: string;
 }) {
   const center = useMemo<[number, number]>(() => [0, 0] as [number, number], []);
   const coords = useMemo(
@@ -59,7 +64,7 @@ export function LeafletMap({
   );
 
   return (
-    <div className="h-64 w-full overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+    <div className={`h-64 w-full overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 ${className ?? ""}`}>
       <MapContainer
         center={coords}
         zoom={13}
@@ -75,7 +80,7 @@ export function LeafletMap({
           <Marker
             key={p.id}
             position={[p.lat, p.lng]}
-            icon={markerIcon(p.index, p.done)}
+            icon={markerIcon(p.index, p.done, p.next)}
           >
             <Popup>{p.label}</Popup>
           </Marker>

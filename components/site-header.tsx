@@ -13,7 +13,13 @@ export async function SiteHeader() {
         </Link>
 
         {user ? (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/days"
+              className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+            >
+              Meus Dias
+            </Link>
             <span className="hidden text-sm text-zinc-500 dark:text-zinc-400 sm:inline">
               {user.name}
             </span>

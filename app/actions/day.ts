@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require-user";
 import {
   addActivityToDay,
+  deleteDay,
   optimizeDay,
   removeDayStop,
   reorderDayStops,
@@ -86,5 +87,17 @@ export async function optimizeDayAction(dayId: string): Promise<OptimizeResult> 
       ok: false,
       error: "Não foi possível otimizar.",
     };
+  }
+}
+
+export async function deleteDayAction(dayId: string): Promise<DayActionResult> {
+  try {
+    const user = await requireUser();
+    await deleteDay(user.tenantId, dayId);
+    revalidatePath("/");
+    revalidatePath("/days");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Não foi possível excluir o dia." };
   }
 }

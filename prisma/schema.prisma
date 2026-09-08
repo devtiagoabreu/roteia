@@ -41,6 +41,7 @@ enum DayStatus {
 
 enum StopStatus {
   PENDENTE
+  EM_ANDAMENTO
   FEITO
   PULADO
 }

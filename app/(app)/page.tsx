@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
-import { todayIso, formatDateShort } from "@/lib/date";
+import { todayIso, isValidDateIso, formatDateShort } from "@/lib/date";
 import { getDayWithStops, listOpenActivities } from "@/lib/day/service";
 import { DayPlanner } from "@/components/day/day-planner";
 import type {
@@ -35,7 +35,11 @@ function toStopDto(
   };
 }
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
   let user;
   try {
     user = await requireUser();
@@ -43,8 +47,12 @@ export default async function HomePage() {
     redirect("/login");
   }
 
+  const params = await searchParams;
   const tz = user.tenant.timezone;
-  const dateIso = todayIso(tz);
+  const today = todayIso(tz);
+  const requested = params.date;
+  const dateIso =
+    requested && isValidDateIso(requested) ? requested : today;
   const { day, stops } = await getDayWithStops(user.tenantId, dateIso);
   const activities = await listOpenActivities(user.tenantId);
 
@@ -77,6 +85,7 @@ export default async function HomePage() {
       activities={activitiesDto}
       tz={tz}
       dateIso={dateIso}
+      today={today}
     />
   );
 }

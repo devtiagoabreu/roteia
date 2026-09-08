@@ -11,7 +11,7 @@ const LeafletMap = dynamic(
 
 function MapSkeleton() {
   return (
-    <div className="flex h-64 w-full items-center justify-center rounded-xl border border-zinc-200 text-sm text-zinc-400 dark:border-zinc-800">
+    <div className="flex h-full min-h-64 w-full items-center justify-center rounded-xl border border-zinc-200 text-sm text-zinc-400 dark:border-zinc-800">
       Carregando mapa…
     </div>
   );
@@ -20,10 +20,12 @@ function MapSkeleton() {
 export function MapPanel({
   points,
   itinerary,
+  className,
 }: {
   points: MapPoint[];
   itinerary: Array<[number, number]>;
+  className?: string;
 }) {
   if (points.length === 0) return null;
-  return <LeafletMap points={points} itinerary={itinerary} />;
+  return <LeafletMap points={points} itinerary={itinerary} className={className} />;
 }

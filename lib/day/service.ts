@@ -141,6 +141,27 @@ export async function setStopStatus(
         })
         .catch(() => {});
     }
+
+    const stops = await tx.dayStop.findMany({
+      where: { dayId: stop.dayId },
+      select: { status: true },
+    });
+    if (stops.length === 0) return;
+    const doneOrSkipped = stops.every(
+      (s) => s.status === "FEITO" || s.status === "PULADO",
+    );
+    const inProgress = stops.some((s) => s.status === "EM_ANDAMENTO");
+    if (doneOrSkipped) {
+      await tx.day.update({
+        where: { id: stop.dayId },
+        data: { status: "CONCLUIDO", version: { increment: 1 } },
+      });
+    } else if (inProgress) {
+      await tx.day.update({
+        where: { id: stop.dayId },
+        data: { status: "EM_ANDAMENTO", version: { increment: 1 } },
+      });
+    }
   });
 }
 
@@ -237,4 +258,24 @@ export async function listOpenActivities(
     orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
     take: 200,
   });
+}
+
+export async function listDaysOverview(
+  tenantId: string,
+): Promise<Array<Day & { _count: { stops: number } }>> {
+  return db.day.findMany({
+    where: { tenantId, stops: { some: {} } },
+    include: { _count: { select: { stops: true } } },
+    orderBy: { date: "desc" },
+    take: 60,
+  });
+}
+
+export async function deleteDay(
+  tenantId: string,
+  dayId: string,
+): Promise<void> {
+  const day = await db.day.findFirst({ where: { id: dayId, tenantId } });
+  if (!day) throw new ApiError("DAY_NOT_FOUND", 404, "Dia não encontrado.");
+  await db.day.delete({ where: { id: dayId } });
 }

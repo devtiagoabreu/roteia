@@ -31,16 +31,51 @@ function formatTime(iso: string | null, tz: string): string {
   }).format(new Date(iso));
 }
 
+const statusLabels: Record<StopDto["status"], string> = {
+  PENDENTE: "Pendente",
+  EM_ANDAMENTO: "Em andamento",
+  FEITO: "Concluída",
+  PULADO: "Pulada",
+};
+
+function navigateLinks(stop: StopDto) {
+  if (stop.lat == null || stop.lng == null) return null;
+  const ll = `${stop.lat},${stop.lng}`;
+  return (
+    <div className="mt-1 flex items-center gap-2 text-[11px]">
+      <span className="text-zinc-400">Navegar:</span>
+      <a
+        href={`https://www.google.com/maps/dir/?api=1&destination=${ll}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+      >
+        Google Maps
+      </a>
+      <a
+        href={`https://waze.com/ul?ll=${ll}&navigate=yes`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+      >
+        Waze
+      </a>
+    </div>
+  );
+}
+
 function StopRow({
   stop,
   tz,
   isLast,
+  isNext,
   onRemove,
   onToggle,
 }: {
   stop: StopDto;
   tz: string;
   isLast: boolean;
+  isNext: boolean;
   onRemove: (id: string) => void;
   onToggle: (id: string, status: StopDto["status"]) => void;
 }) {
@@ -49,6 +84,7 @@ function StopRow({
 
   const done = stop.status === "FEITO";
   const skipped = stop.status === "PULADO";
+  const active = stop.status === "PENDENTE" || stop.status === "EM_ANDAMENTO";
 
   const meta: string[] = [];
   if (stop.address) meta.push(stop.address);
@@ -58,8 +94,12 @@ function StopRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`relative flex gap-3 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900 ${
+      className={`relative flex gap-3 rounded-lg border p-3 ${
         isDragging ? "z-10 shadow-lg opacity-90" : ""
+      } ${
+        isNext && active
+          ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/20"
+          : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
       } ${done ? "opacity-60" : ""} ${skipped ? "opacity-40" : ""}`}
     >
       <button
@@ -82,7 +122,15 @@ function StopRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Badge priority={stop.priority}>{priorityLabels[stop.priority]}</Badge>
+          {isNext && active && (
+            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+              Próxima
+            </span>
+          )}
           <span className="truncate text-sm font-medium">{stop.title}</span>
+          <span className={`ml-auto shrink-0 text-[11px] font-medium ${done ? "text-green-600" : skipped ? "text-zinc-400" : "text-zinc-500"}`}>
+            {statusLabels[stop.status]}
+          </span>
         </div>
         <div className="mt-1 truncate text-xs text-zinc-500">
           {meta.join(" · ")}
@@ -111,6 +159,8 @@ function StopRow({
           </span>
         </div>
 
+        {navigateLinks(stop)}
+
         {stop.conflict && (
           <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">
             ⚠ {stop.conflict}
@@ -118,30 +168,42 @@ function StopRow({
         )}
       </div>
 
-      <div className="flex flex-col items-center justify-between gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() =>
-            onToggle(stop.id, done ? "PENDENTE" : "FEITO")
-          }
-          aria-label={done ? "Desmarcar como feito" : "Marcar como feito"}
-          className="p-1.5"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            className={done ? "text-green-600" : "text-zinc-300"}
-            aria-hidden
+      <div className="flex flex-col items-stretch justify-between gap-2">
+        {active && (
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                onToggle(
+                  stop.id,
+                  stop.status === "EM_ANDAMENTO" ? "FEITO" : "EM_ANDAMENTO",
+                )
+              }
+              className="px-3 py-1 text-xs"
+            >
+              {stop.status === "EM_ANDAMENTO" ? "Concluído" : "Cheguei"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onToggle(stop.id, "PULADO")}
+              className="px-3 py-1 text-xs"
+            >
+              Pular
+            </Button>
+          </>
+        )}
+        {!active && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onToggle(stop.id, "PENDENTE")}
+            className="px-3 py-1 text-xs"
           >
-            <circle cx="12" cy="12" r="9" />
-            {done && <path d="M8 12.5l2.5 2.5L16 9.5" strokeLinecap="round" strokeLinejoin="round" />}
-          </svg>
-        </Button>
+            Reabrir
+          </Button>
+        )}
         <Button type="button" variant="danger" onClick={() => onRemove(stop.id)} className="p-1.5" aria-label="Remover">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
@@ -193,6 +255,10 @@ export function StopList({
     });
   }
 
+  const nextIndex = stops.findIndex(
+    (s) => s.status === "PENDENTE" || s.status === "EM_ANDAMENTO",
+  );
+
   return (
     <DndContext
       sensors={sensors}
@@ -207,6 +273,7 @@ export function StopList({
               stop={stop}
               tz={tz}
               isLast={index === stops.length - 1}
+              isNext={index === nextIndex}
               onRemove={onRemove}
               onToggle={handleToggle}
             />
