@@ -23,6 +23,8 @@ export default async function PlacesPage() {
     notes: p.notes,
     isFavorite: p.isFavorite,
     lastUsedAt: p.lastUsedAt?.toISOString() ?? null,
+    lat: p.lat,
+    lng: p.lng,
   }));
 
   return (

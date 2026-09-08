@@ -44,9 +44,13 @@ export async function createActivityAction(
   const data = parsed.data;
   const tz = user.tenant.timezone;
 
-  let lat: number | null = null;
-  let lng: number | null = null;
-  if (data.address) {
+  const rawLat = Number(formData.get("lat") ?? NaN);
+  const rawLng = Number(formData.get("lng") ?? NaN);
+  const hasPickedCoords = Number.isFinite(rawLat) && Number.isFinite(rawLng);
+
+  let lat: number | null = hasPickedCoords ? rawLat : null;
+  let lng: number | null = hasPickedCoords ? rawLng : null;
+  if (data.address && !hasPickedCoords) {
     try {
       const point = await geocodeAddress(data.address);
       if (point) {

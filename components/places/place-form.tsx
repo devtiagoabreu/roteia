@@ -10,6 +10,7 @@ import {
   updatePlaceAction,
 } from "@/app/actions/places";
 import { Button, Input, Label } from "@/components/ui";
+import { AddressInput } from "@/components/address-input";
 import type { PlaceDto } from "@/components/places/types";
 
 export function PlaceForm({
@@ -24,11 +25,17 @@ export function PlaceForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [pickedCoords, setPickedCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<PlaceInput>({
     resolver: zodResolver(placeSchema),
@@ -46,6 +53,10 @@ export function PlaceForm({
     formData.set("category", values.category ?? "");
     formData.set("address", values.address);
     formData.set("notes", values.notes ?? "");
+    if (pickedCoords) {
+      formData.set("lat", String(pickedCoords.lat));
+      formData.set("lng", String(pickedCoords.lng));
+    }
 
     startTransition(async () => {
       const result =
@@ -59,7 +70,10 @@ export function PlaceForm({
       }
 
       setError(null);
-      if (mode === "create") reset();
+      if (mode === "create") {
+        reset();
+        setPickedCoords(null);
+      }
       onDone?.();
       router.refresh();
     });
@@ -75,18 +89,29 @@ export function PlaceForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor="place-category">Categoria</Label>
-          <Input id="place-category" {...register("category")} placeholder="Trabalho" />
-        </div>
-        <div>
-          <Label htmlFor="place-address">Endereço</Label>
-          <Input id="place-address" {...register("address")} placeholder="Rua, número, bairro, cidade" />
-          {errors.address && (
-            <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>
-          )}
-        </div>
+      <div>
+        <Label htmlFor="place-category">Categoria</Label>
+        <Input id="place-category" {...register("category")} placeholder="Trabalho" />
+      </div>
+
+      <div>
+        <Label htmlFor="place-address">Endereço</Label>
+        <AddressInput
+          id="place-address"
+          value={watch("address") ?? ""}
+          onText={(v) => {
+            setPickedCoords(null);
+            setValue("address", v, { shouldValidate: true });
+          }}
+          onPick={(s) => {
+            setPickedCoords({ lat: s.lat, lng: s.lng });
+            setValue("address", s.label, { shouldValidate: true });
+          }}
+          placeholder="Rua, número, bairro, cidade"
+        />
+        {errors.address && (
+          <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>
+        )}
       </div>
 
       <div>

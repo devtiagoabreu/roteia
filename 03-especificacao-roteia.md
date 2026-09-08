@@ -163,13 +163,13 @@ Se isso funcionar bem, temos um produto para testar.
 | # | Tarefa | Status |
 |---|---|---|
 | 27 | Digitar endereço | ✅ |
-| 28 | Autocomplete de endereço | 🟡 (geocodifica ao salvar; sem dropdown) |
+| 28 | Autocomplete de endereço | ✅ (dropdown ORS/Nominatim no formulário) |
 | 29 | Geocodificar endereço | ✅ (Nominatim + ORS) |
 | 30 | Confirmar endereço | 🟡 (marcador no mapa) |
 | 31 | Exibir no mapa | ✅ |
 | 32 | Guardar lat/lng | ✅ |
-| 33 | Tratar endereço ambíguo | ☐ |
-| 34 | Endereço não encontrado | 🟡 (erro no formulário) |
+| 33 | Tratar endereço ambíguo | ✅ (lista de sugestões; usuário escolhe) |
+| 34 | Endereço não encontrado | ✅ (aviso no dropdown + geocodifica ao salvar) |
 | 35 | Ajustar manualmente no mapa | ☐ |
 | 36 | Parada sem endereço | ✅ |
 | 37 | Salvar local (Meus Locais) | ✅ |
@@ -470,7 +470,7 @@ dia/atividade. Exclusão hoje é física (cascade) + auditada.
 
 - Login Google/Apple, recuperação de senha, múltiplos perfis.
 - Câmera/OCR de listas (colar múltiplos endereços também).
-- Autocomplete de endereço interativo + ajuste manual do marcador.
+- Ajuste manual do marcador no mapa (o autocomplete já está entregue).
 - Finalização rica: horários reais, atrasos, resumo, replanejar pendências.
 - "Estou atrasado" + recalcular restante durante execução.
 - Offline de visualização; compartilhamento (view externa).
@@ -487,4 +487,5 @@ dia/atividade. Exclusão hoje é física (cascade) + auditada.
 | — | Revisão profunda de 001/002; consolidação em `03` (este doc) |
 | — | `03-especificacao-roteia.md` criado; docs 01/02 mantidos como histórico |
 | próx. | Fatia **Meus Locais** (tarefas 37–41 + fluxo "salvar de parada" + "usar hoje" + "preencher com local salvo") — ✅ entregue |
+| próx. | Fatia **Autocomplete de endereço** (28 + 33/34) — dropdown ORS/Nominatim com debounce, lat/lng precisos, aviso "não encontrado" — ✅ entregue |
 | pend. | Deploy Vercel (usuário adiciona o repo); teste real (Bloco 19) |

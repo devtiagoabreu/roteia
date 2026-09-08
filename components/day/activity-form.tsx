@@ -17,6 +17,7 @@ import {
 import { addToDayAction } from "@/app/actions/day";
 import { markPlaceUsedAction } from "@/app/actions/places";
 import { Button, Input, Label, Select } from "@/components/ui";
+import { AddressInput } from "@/components/address-input";
 import type { PlaceDto } from "@/components/places/types";
 
 export function ActivityForm({
@@ -33,6 +34,10 @@ export function ActivityForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [pickedCoords, setPickedCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   const {
     register,
@@ -65,6 +70,10 @@ export function ActivityForm({
     for (const [key, value] of Object.entries(values)) {
       formData.set(key, value == null ? "" : String(value));
     }
+    if (pickedCoords) {
+      formData.set("lat", String(pickedCoords.lat));
+      formData.set("lng", String(pickedCoords.lng));
+    }
 
     startTransition(async () => {
       const result = (await createActivityAction(dateIso, {
@@ -85,6 +94,7 @@ export function ActivityForm({
 
       setError(null);
       reset();
+      setPickedCoords(null);
       onCreated?.();
       router.refresh();
     });
@@ -179,9 +189,17 @@ export function ActivityForm({
 
       <div>
         <Label htmlFor="address">Endereço</Label>
-        <Input
+        <AddressInput
           id="address"
-          {...register("address")}
+          value={watch("address") ?? ""}
+          onText={(v) => {
+            setPickedCoords(null);
+            setValue("address", v, { shouldValidate: true });
+          }}
+          onPick={(s) => {
+            setPickedCoords({ lat: s.lat, lng: s.lng });
+            setValue("address", s.label, { shouldValidate: true });
+          }}
           placeholder="Rua, número, bairro, cidade"
         />
         <p className="mt-1 text-[11px] text-zinc-400">
@@ -201,6 +219,11 @@ export function ActivityForm({
               const place = savedPlaces.find((p) => p.id === id);
               if (!place) return;
               setValue("address", place.address, { shouldValidate: true });
+              setPickedCoords(
+                place.lat != null && place.lng != null
+                  ? { lat: place.lat, lng: place.lng }
+                  : null,
+              );
               if (!getValues("title")) setValue("title", place.label);
               markPlaceUsedAction(place.id).catch(() => {});
               e.target.value = "";

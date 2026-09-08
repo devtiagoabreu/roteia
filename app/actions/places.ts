@@ -44,8 +44,17 @@ async function resolvePlaceData(
   if (!parsed.success) throw new Error(firstField(parsed.error));
 
   const data = parsed.data;
-  let lat = data.lat ?? fallbackLatLng?.lat ?? null;
-  let lng = data.lng ?? fallbackLatLng?.lng ?? null;
+
+  const rawLat = Number(formData.get("lat") ?? NaN);
+  const rawLng = Number(formData.get("lng") ?? NaN);
+  const hasPickedCoords = Number.isFinite(rawLat) && Number.isFinite(rawLng);
+
+  let lat =
+    data.lat ??
+    (hasPickedCoords ? rawLat : fallbackLatLng?.lat ?? null);
+  let lng =
+    data.lng ??
+    (hasPickedCoords ? rawLng : fallbackLatLng?.lng ?? null);
 
   if (data.address && (lat == null || lng == null)) {
     try {
