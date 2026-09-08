@@ -7,6 +7,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { loginSchema, registerSchema } from "@/lib/validations";
 import { isUniqueViolation } from "@/lib/api-error";
+import { slugify } from "@/lib/slug";
 
 export type ActionResult = {
   error?: string;
@@ -22,17 +23,6 @@ function toFieldErrors(
     if (!fields[key]) fields[key] = issue.message;
   }
   return fields;
-}
-
-function slugify(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
 }
 
 export async function registerAction(
