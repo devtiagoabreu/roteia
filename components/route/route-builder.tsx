@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   deleteRouteAction,
+  optimizeRemainingRouteAction,
   optimizeRouteAction,
   removeRouteStopAction,
   reorderRouteStopsAction,
@@ -29,11 +30,13 @@ export function RouteBuilder({
   stops,
   customers,
   tz,
+  reasons,
 }: {
   route: RouteDto;
   stops: RouteStopDto[];
   customers: RouteCustomerOption[];
   tz: string;
+  reasons?: Record<string, boolean>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -78,6 +81,15 @@ export function RouteBuilder({
     });
   }
 
+  function handleOptimizeRemaining() {
+    setBannerError(null);
+    startTransition(async () => {
+      const res = await optimizeRemainingRouteAction(route.id);
+      if (!res.ok) setBannerError(res.error ?? "Não foi possível reotimizar.");
+      router.refresh();
+    });
+  }
+
   function handleDelete() {
     if (!window.confirm("Excluir esta rota e todas as suas paradas?")) return;
     startTransition(async () => {
@@ -110,10 +122,31 @@ export function RouteBuilder({
     return pts;
   }, [mapPoints, route.startLat, route.startLng]);
 
-  const optimized = route.status === "OTIMIZADO";
+  const optimized = route.status === "OTIMIZADO" || route.status === "EM_ANDAMENTO";
   const doneCount = stops.filter(
     (s) => s.status === "FEITO" || s.status === "PULADO",
   ).length;
+  const hasDone = doneCount > 0;
+  const hasPending = doneCount < stops.length;
+
+  const explanations = useMemo(() => {
+    if (!optimized || !reasons) return [];
+    return stops.map((stop, i) => {
+      const prev =
+        i === 0
+          ? route.startAddress ?? "o ponto de partida"
+          : stops[i - 1]!.title;
+      const isNearest = reasons[stop.id] !== false;
+      const leg = stop.distanceFromPreviousMeters ?? 0;
+      return {
+        title: stop.title,
+        prev,
+        isNearest,
+        distance: formatDistance(leg),
+        minutes: stop.travelMinutes,
+      };
+    });
+  }, [optimized, reasons, stops, route.startAddress]);
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
@@ -223,10 +256,43 @@ export function RouteBuilder({
                     ? "Reotimizar rota"
                     : "Otimizar rota"}
               </Button>
+              {hasDone && hasPending && (
+                <Button
+                  onClick={handleOptimizeRemaining}
+                  disabled={pending}
+                  variant="ghost"
+                  className="mt-2 w-full text-sm"
+                >
+                  Reotimizar apenas o restante
+                </Button>
+              )}
               <p className="mt-2 text-center text-[11px] text-zinc-400">
                 Reordena as paradas para encurtar o caminho partindo da origem.
               </p>
             </div>
+          )}
+
+          {explanations.length > 0 && (
+            <details className="mt-4 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+              <summary className="cursor-pointer text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Por que esta ordem?
+              </summary>
+              <ol className="mt-2 space-y-1 text-xs text-zinc-500">
+                {explanations.map((e) => (
+                  <li key={e.title}>
+                    <span className="font-medium text-zinc-700 dark:text-zinc-200">
+                      {e.title}
+                    </span>{" "}
+                    — {e.isNearest ? `mais próxima de ${e.prev}` : "parada sem coordenadas"} (
+                    {e.distance}
+                    {e.minutes != null && e.minutes > 0
+                      ? ` · ${formatDuration(e.minutes)}`
+                      : ""}
+                    )
+                  </li>
+                ))}
+              </ol>
+            </details>
           )}
 
           <section className="mt-8">

@@ -137,3 +137,41 @@ export function optimizeRouteOrder(
 
   return buildPlan([...placed, ...withoutCoords], origin, start, kmh);
 }
+
+/**
+ * Para cada parada na ordem final, indica se ela foi escolhida por ser a
+ * mais próxima da parada anterior (regra do vizinho mais próximo) — usado
+ * para explicar a ordem da otimização. Paradas sem coordenadas → false.
+ */
+export function nearestReasons(
+  ordered: RouteStopLike[],
+  origin: { lat?: number | null; lng?: number | null } | null,
+): Record<string, boolean> {
+  const reasons: Record<string, boolean> = {};
+  const placed = new Set<string>();
+  let prev = origin;
+
+  for (const stop of ordered) {
+    if (!hasCoord(stop)) {
+      reasons[stop.key] = false;
+      continue;
+    }
+    const dThis = travelStats(prev, stop, TRANSPORT_KMH.CARRO).distanceMeters;
+    let nearest = true;
+    for (const other of ordered) {
+      if (placed.has(other.key) || !hasCoord(other) || other.key === stop.key) {
+        continue;
+      }
+      const dOther = travelStats(prev, other, TRANSPORT_KMH.CARRO).distanceMeters;
+      if (dOther < dThis) {
+        nearest = false;
+        break;
+      }
+    }
+    reasons[stop.key] = nearest;
+    placed.add(stop.key);
+    prev = stop;
+  }
+
+  return reasons;
+}

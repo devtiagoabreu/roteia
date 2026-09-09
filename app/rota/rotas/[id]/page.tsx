@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/require-user";
 import { getRoute } from "@/lib/route/service";
+import { nearestReasons } from "@/lib/route/optimize";
 import { listCustomers } from "@/lib/customers/service";
 import { RouteBuilder } from "@/components/route/route-builder";
 import type {
@@ -89,6 +90,10 @@ export default async function RoutePage({
       stops={stopsDto}
       customers={customersDto}
       tz={tz}
+      reasons={nearestReasons(
+        route.stops.map((s) => ({ key: s.id, lat: s.lat, lng: s.lng })),
+        { lat: route.startLat, lng: route.startLng },
+      )}
     />
   );
 }

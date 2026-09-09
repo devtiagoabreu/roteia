@@ -71,13 +71,14 @@ async function applyPlan(
 
   for (const stop of stops) {
     const planned = byKey.get(stop.id);
+    if (!planned) continue;
     await tx.routeStop.update({
       where: { id: stop.id },
       data: {
-        plannedStartAt: planned?.plannedStart ?? null,
-        plannedEndAt: planned?.plannedEnd ?? null,
-        travelMinutes: planned?.travelMinutes ?? null,
-        distanceFromPreviousMeters: planned?.distanceMeters ?? null,
+        plannedStartAt: planned.plannedStart,
+        plannedEndAt: planned.plannedEnd,
+        travelMinutes: planned.travelMinutes,
+        distanceFromPreviousMeters: planned.distanceMeters,
       },
     });
   }
@@ -165,9 +166,9 @@ export async function createRoute(
   return route;
 }
 
-export async function listRoutes(tenantId: string) {
+export async function listRoutes(tenantId: string, includeArchived = false) {
   return db.route.findMany({
-    where: { tenantId, status: { not: "ARQUIVADO" } },
+    where: { tenantId, ...(includeArchived ? {} : { status: { not: "ARQUIVADO" } }) },
     include: { _count: { select: { stops: true } } },
     orderBy: [{ date: "desc" }, { createdAt: "asc" }],
   });
@@ -571,6 +572,140 @@ export async function setRouteStopStatus(
         tenantId,
         userId,
         action: "UPDATE",
+        entityType: "Route",
+        entityId: routeId,
+      },
+    });
+  });
+}
+
+export async function archiveRoute(
+  tenantId: string,
+  userId: string | null,
+  routeId: string,
+) {
+  await requireRoute(tenantId, routeId);
+  await db.route.update({
+    where: { id: routeId },
+    data: { status: "ARQUIVADO", version: { increment: 1 } },
+  });
+  await db.auditLog.create({
+    data: {
+      tenantId,
+      userId,
+      action: "UPDATE",
+      entityType: "Route",
+      entityId: routeId,
+    },
+  });
+}
+
+export async function restoreRoute(
+  tenantId: string,
+  userId: string | null,
+  routeId: string,
+) {
+  const route = await requireRoute(tenantId, routeId);
+  const next = route.stops.length > 0 ? "OTIMIZADO" : "RASCUNHO";
+  await db.route.update({
+    where: { id: routeId },
+    data: { status: next, version: { increment: 1 } },
+  });
+  await db.auditLog.create({
+    data: {
+      tenantId,
+      userId,
+      action: "UPDATE",
+      entityType: "Route",
+      entityId: routeId,
+    },
+  });
+}
+
+/**
+ * Reotimiza apenas as paradas ainda não concluídas (C8/P1), preservando a
+ * ordem e os horários do que já passou. A nova origem é a última parada
+ * concluída/pulada; a partir dela o restante é reordenado por vizinho mais
+ * próximo e re-agendado.
+ */
+export async function optimizeRemainingRoute(
+  tenantId: string,
+  userId: string | null,
+  routeId: string,
+) {
+  const route = await requireRoute(tenantId, routeId);
+  const done = route.stops.filter(
+    (s) => s.status === "FEITO" || s.status === "PULADO",
+  );
+  const pending = route.stops.filter(
+    (s) => s.status !== "FEITO" && s.status !== "PULADO",
+  );
+
+  if (pending.length === 0) {
+    throw new ApiError(
+      "NOT_ENOUGH_STOPS",
+      400,
+      "Todas as paradas já foram concluídas ou puladas.",
+    );
+  }
+  if (done.length === 0) {
+    await optimizeRoute(tenantId, userId, routeId);
+    return;
+  }
+
+  const lastDone = done[done.length - 1]!;
+  const kmh = TRANSPORT_KMH[route.tenant.transportMode];
+  const restStart =
+    lastDone.finishedAt ??
+    lastDone.plannedEndAt ??
+    route.startTime ??
+    timeInTz(
+      route.date.toISOString().slice(0, 10),
+      "08:00",
+      route.tenant.timezone,
+    );
+  const origin =
+    lastDone.lat != null && lastDone.lng != null
+      ? { lat: lastDone.lat, lng: lastDone.lng }
+      : { lat: route.startLat, lng: route.startLng };
+
+  const plan = optimizeRouteOrder(
+    pending.map((s) => ({ key: s.id, lat: s.lat, lng: s.lng })),
+    origin,
+    restStart,
+    kmh,
+  );
+  const orderedStopIds = [
+    ...done.map((s) => s.id),
+    ...plan.ordered.map((p) => p.key),
+  ];
+
+  const doneDistanceMeters = done.reduce(
+    (acc, s) => acc + (s.distanceFromPreviousMeters ?? 0),
+    0,
+  );
+  const doneDurationMinutes = done.reduce(
+    (acc, s) => acc + (s.travelMinutes ?? 0),
+    0,
+  );
+
+  await db.$transaction(async (tx) => {
+    await applyPlan(tx, routeId, route.stops, plan, orderedStopIds);
+    await tx.route.update({
+      where: { id: routeId },
+      data: {
+        status: route.status === "CONCLUIDO" ? "EM_ANDAMENTO" : "OTIMIZADO",
+        optimizationProvider: "roteia-internal-nearest-neighbor",
+        optimizedAt: new Date(),
+        totalDistanceMeters: doneDistanceMeters + plan.totalDistanceMeters,
+        totalDurationMinutes: doneDurationMinutes + plan.totalDurationMinutes,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        tenantId,
+        userId,
+        action: "OPTIMIZE",
         entityType: "Route",
         entityId: routeId,
       },

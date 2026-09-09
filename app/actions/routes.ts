@@ -5,11 +5,14 @@ import { requireUser } from "@/lib/auth/require-user";
 import {
   addAddressStop,
   addCustomerStop,
+  archiveRoute,
   createRoute,
   deleteRoute,
+  optimizeRemainingRoute,
   optimizeRoute,
   removeRouteStop,
   reorderRouteStops,
+  restoreRoute,
   setRouteStopStatus,
   updateRouteSettings,
 } from "@/lib/route/service";
@@ -243,6 +246,47 @@ export async function setRouteStopStatusAction(
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível atualizar o status da parada." };
+  }
+}
+
+export async function archiveRouteAction(
+  routeId: string,
+): Promise<RouteActionResult> {
+  try {
+    const user = await requireUser();
+    await archiveRoute(user.tenantId, user.id, routeId);
+    revalidatePath("/rota");
+    revalidatePath("/rota/rotas");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Não foi possível arquivar a rota." };
+  }
+}
+
+export async function restoreRouteAction(
+  routeId: string,
+): Promise<RouteActionResult> {
+  try {
+    const user = await requireUser();
+    await restoreRoute(user.tenantId, user.id, routeId);
+    revalidatePath("/rota");
+    revalidatePath("/rota/rotas");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Não foi possível restaurar a rota." };
+  }
+}
+
+export async function optimizeRemainingRouteAction(
+  routeId: string,
+): Promise<RouteActionResult> {
+  try {
+    const user = await requireUser();
+    await optimizeRemainingRoute(user.tenantId, user.id, routeId);
+    revalidatePath(`/rota/rotas/${routeId}`);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Não foi possível reotimizar o restante." };
   }
 }
 
