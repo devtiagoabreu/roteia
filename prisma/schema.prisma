@@ -1,6 +1,6 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
   moduleFormat = "esm"
 }
 
@@ -53,6 +53,14 @@ enum TransportMode {
   PEDESTRE
 }
 
+enum RouteStatus {
+  RASCUNHO
+  OTIMIZADO
+  EM_ANDAMENTO
+  CONCLUIDO
+  ARQUIVADO
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -63,20 +71,21 @@ enum AuditAction {
 }
 
 model Tenant {
-  id             String        @id @default(cuid())
-  name           String
-  slug           String        @unique
-  plan           PlanCode      @default(FREE)
-  timezone       String        @default("America/Sao_Paulo")
-  profileType    String?       @default("PESSOAL")
-  transportMode  TransportMode @default(CARRO)
-  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+  id            String        @id @default(cuid())
+  name          String
+  slug          String        @unique
+  plan          PlanCode      @default(FREE)
+  timezone      String        @default("America/Sao_Paulo")
+  profileType   String?       @default("PESSOAL")
+  transportMode TransportMode @default(CARRO)
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
 
   users       User[]
   savedPlaces SavedPlace[]
   activities  Activity[]
   days        Day[]
+  routes      Route[]
   customers   Customer[]
   addresses   Address[]
   sessions    Session[]
@@ -98,10 +107,10 @@ model User {
   createdAt    DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  sessions Session[]
-  days     Day[]
-  auditLogs AuditLog[]
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions       Session[]
+  days           Day[]
+  auditLogs      AuditLog[]
   passwordResets PasswordResetToken[]
 
   @@unique([tenantId, email])
@@ -138,18 +147,18 @@ model Session {
 }
 
 model SavedPlace {
-  id        String   @id @default(cuid())
-  tenantId  String
-  label     String
-  category  String?
-  address   String
-  lat       Float?
-  lng       Float?
+  id         String    @id @default(cuid())
+  tenantId   String
+  label      String
+  category   String?
+  address    String
+  lat        Float?
+  lng        Float?
   notes      String?
-  isFavorite Boolean  @default(false)
+  isFavorite Boolean   @default(false)
   lastUsedAt DateTime? @db.Timestamptz(3)
-  createdAt  DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
 
   tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   activities Activity[]
@@ -179,7 +188,7 @@ model Activity {
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
 
-  tenant Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   place  SavedPlace? @relation(fields: [placeId], references: [id], onDelete: SetNull)
   stops  DayStop[]
 
@@ -210,8 +219,8 @@ model Day {
   createdAt            DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime  @updatedAt @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   stops  DayStop[]
 
   @@unique([tenantId, date])
@@ -219,39 +228,92 @@ model Day {
 }
 
 model DayStop {
-  id                        String     @id @default(cuid())
-  dayId                     String
-  activityId                String?
-  position                  Int
-  title                     String
-  notes                     String?
-  address                   String?
-  lat                       Float?
-  lng                       Float?
-  priority                  Priority   @default(NORMAL)
-  timeType                  TimeType   @default(FLEXIVEL)
-  startAt                   DateTime?  @db.Timestamptz(3)
-  windowStartAt             DateTime?  @db.Timestamptz(3)
-  windowEndAt               DateTime?  @db.Timestamptz(3)
-  plannedStartAt            DateTime?  @db.Timestamptz(3)
-  plannedEndAt              DateTime?  @db.Timestamptz(3)
-  durationMinutes           Int        @default(30)
-  marginMinutes             Int        @default(10)
+  id                         String     @id @default(cuid())
+  dayId                      String
+  activityId                 String?
+  position                   Int
+  title                      String
+  notes                      String?
+  address                    String?
+  lat                        Float?
+  lng                        Float?
+  priority                   Priority   @default(NORMAL)
+  timeType                   TimeType   @default(FLEXIVEL)
+  startAt                    DateTime?  @db.Timestamptz(3)
+  windowStartAt              DateTime?  @db.Timestamptz(3)
+  windowEndAt                DateTime?  @db.Timestamptz(3)
+  plannedStartAt             DateTime?  @db.Timestamptz(3)
+  plannedEndAt               DateTime?  @db.Timestamptz(3)
+  durationMinutes            Int        @default(30)
+  marginMinutes              Int        @default(10)
   distanceFromPreviousMeters Int?
-  travelMinutes             Int?
-  status                    StopStatus @default(PENDENTE)
-  startedAt                 DateTime?  @db.Timestamptz(3)
-  finishedAt                DateTime?  @db.Timestamptz(3)
-  conflict                  String?
-  version                   Int        @default(0)
-  createdAt                 DateTime   @default(now()) @db.Timestamptz(3)
-  updatedAt                 DateTime   @updatedAt @db.Timestamptz(3)
+  travelMinutes              Int?
+  status                     StopStatus @default(PENDENTE)
+  startedAt                  DateTime?  @db.Timestamptz(3)
+  finishedAt                 DateTime?  @db.Timestamptz(3)
+  conflict                   String?
+  version                    Int        @default(0)
+  createdAt                  DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime   @updatedAt @db.Timestamptz(3)
 
   day      Day       @relation(fields: [dayId], references: [id], onDelete: Cascade)
   activity Activity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
 
   @@unique([dayId, position])
   @@index([dayId])
+}
+
+model Route {
+  id                   String      @id @default(cuid())
+  tenantId             String
+  date                 DateTime    @db.Date
+  name                 String?
+  status               RouteStatus @default(RASCUNHO)
+  startAddress         String?
+  startLat             Float?
+  startLng             Float?
+  startTime            DateTime?   @db.Timestamptz(3)
+  endAddress           String?
+  endLat               Float?
+  endLng               Float?
+  totalDistanceMeters  Int?
+  totalDurationMinutes Int?
+  optimizationProvider String?
+  optimizedAt          DateTime?   @db.Timestamptz(3)
+  version              Int         @default(0)
+  createdAt            DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime    @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stops  RouteStop[]
+
+  @@index([tenantId, date])
+  @@index([tenantId, status])
+}
+
+model RouteStop {
+  id                         String     @id @default(cuid())
+  routeId                    String
+  customerId                 String?
+  position                   Int
+  title                      String
+  notes                      String?
+  address                    String?
+  lat                        Float?
+  lng                        Float?
+  plannedStartAt             DateTime?  @db.Timestamptz(3)
+  plannedEndAt               DateTime?  @db.Timestamptz(3)
+  travelMinutes              Int?
+  distanceFromPreviousMeters Int?
+  status                     StopStatus @default(PENDENTE)
+  createdAt                  DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime   @updatedAt @db.Timestamptz(3)
+
+  route Route @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, position])
+  @@index([routeId])
+  @@index([customerId])
 }
 
 model Customer {
@@ -269,7 +331,7 @@ model Customer {
   updatedAt DateTime  @updatedAt @db.Timestamptz(3)
   deletedAt DateTime? @db.Timestamptz(3)
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   addresses Address[]
 
   @@unique([tenantId, code])
