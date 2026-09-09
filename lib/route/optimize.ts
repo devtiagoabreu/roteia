@@ -1,10 +1,16 @@
 import { haversineMeters } from "@/lib/maps/route";
 import { TRANSPORT_KMH } from "@/lib/day/optimize";
 
+export type RouteStopPriority = "AUTO" | "PRIMEIRA" | "ULTIMA";
+
 export type RouteStopLike = {
   key: string;
   lat?: number | null;
   lng?: number | null;
+  serviceMinutes?: number;
+  windowStart?: Date | null;
+  windowEnd?: Date | null;
+  priority?: RouteStopPriority;
 };
 
 export type PlannedRouteStop = {
@@ -13,6 +19,7 @@ export type PlannedRouteStop = {
   plannedEnd: Date;
   travelMinutes: number;
   distanceMeters: number;
+  conflict?: string | null;
 };
 
 export type RoutePlan = {
@@ -46,6 +53,16 @@ function travelStats(
   return { distanceMeters: Math.round(withStreets), travelMinutes };
 }
 
+function formatTime(d: Date): string {
+  return d
+    .toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+    .replace("24:", "00:");
+}
+
 export function hasCoord(
   s: RouteStopLike,
 ): s is { key: string; lat: number; lng: number } {
@@ -61,20 +78,32 @@ function buildPlan(
   const ordered: PlannedRouteStop[] = [];
   let cursor = start;
   let prev = origin;
-  let totalDistanceMeters = 0;
 
   for (const stop of orderedStops) {
     const travel = travelStats(prev, stop, kmh);
-    const plannedStart = new Date(cursor.getTime() + travel.travelMinutes * 60000);
-    const plannedEnd = plannedStart;
+    const earliest = new Date(
+      cursor.getTime() + travel.travelMinutes * 60000,
+    );
+    const plannedStart =
+      stop.windowStart && stop.windowStart.getTime() > earliest.getTime()
+        ? stop.windowStart
+        : earliest;
+    const serviceMinutes = stop.serviceMinutes ?? 0;
+    const plannedEnd = new Date(
+      plannedStart.getTime() + serviceMinutes * 60000,
+    );
+    let conflict: string | null = null;
+    if (stop.windowEnd && plannedEnd.getTime() > stop.windowEnd.getTime() + 60000) {
+      conflict = `Fora da janela: termina às ${formatTime(plannedEnd)}, janela até ${formatTime(stop.windowEnd)}.`;
+    }
     ordered.push({
       key: stop.key,
       plannedStart,
       plannedEnd,
       travelMinutes: travel.travelMinutes,
       distanceMeters: travel.distanceMeters,
+      conflict,
     });
-    totalDistanceMeters += travel.distanceMeters;
     cursor = plannedEnd;
     if (hasCoord(stop)) prev = stop;
   }
@@ -82,10 +111,17 @@ function buildPlan(
   const last = ordered[ordered.length - 1];
   const totalDurationMinutes =
     last != null
-      ? Math.max(0, Math.round((last.plannedStart.getTime() - start.getTime()) / 60000))
+      ? Math.max(0, Math.round((last.plannedEnd.getTime() - start.getTime()) / 60000))
       : 0;
 
-  return { ordered, totalDistanceMeters, totalDurationMinutes };
+  return {
+    ordered,
+    totalDistanceMeters: ordered.reduce(
+      (acc, s) => acc + s.distanceMeters,
+      0,
+    ),
+    totalDurationMinutes,
+  };
 }
 
 /**
@@ -102,9 +138,10 @@ export function planRouteInOrder(
 }
 
 /**
- * Otimiza a sequência por vizinho mais próximo: sai da origem (quando
- * houver coordenadas) e sempre visita a parada não visitada mais próxima.
- * Paradas sem coordenadas permanecem ao final, na ordem original.
+ * Otimiza a sequência por vizinho mais próximo, respeitando a prioridade
+ * First/Last/Auto: paradas `PRIMEIRA` permanecem no início (ordem humana),
+ * paradas `ULTIMA` no fim (ordem humana) e o meio é reordenado do mais
+ * próximo. Paradas sem coordenadas permanecem ao final, na ordem original.
  */
 export function optimizeRouteOrder(
   stops: RouteStopLike[],
@@ -112,13 +149,23 @@ export function optimizeRouteOrder(
   start: Date,
   kmh: number = TRANSPORT_KMH.CARRO,
 ): RoutePlan {
-  const withCoords = stops.filter(hasCoord);
-  const withoutCoords = stops.filter((s) => !hasCoord(s));
+  const first = stops.filter((s) => s.priority === "PRIMEIRA");
+  const last = stops.filter((s) => s.priority === "ULTIMA");
+  const middle = stops.filter(
+    (s) => s.priority !== "PRIMEIRA" && s.priority !== "ULTIMA",
+  );
 
-  const placed: RouteStopLike[] = [];
-  const remaining = [...withCoords];
+  const withCoords = middle.filter(hasCoord);
+  const withoutCoords = middle.filter((s) => !hasCoord(s));
+
   let prevPoint: { lat?: number | null; lng?: number | null } | null = origin;
+  const placed: RouteStopLike[] = [];
+  for (const s of first) {
+    placed.push(s);
+    if (hasCoord(s)) prevPoint = s;
+  }
 
+  const remaining = [...withCoords];
   while (remaining.length > 0) {
     let bestIndex = 0;
     let bestDistance = Infinity;
@@ -135,7 +182,8 @@ export function optimizeRouteOrder(
     prevPoint = next;
   }
 
-  return buildPlan([...placed, ...withoutCoords], origin, start, kmh);
+  placed.push(...withoutCoords, ...last);
+  return buildPlan(placed, origin, start, kmh);
 }
 
 /**

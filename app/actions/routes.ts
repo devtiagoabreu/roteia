@@ -15,6 +15,7 @@ import {
   restoreRoute,
   setRouteStopStatus,
   updateRouteSettings,
+  updateRouteStop,
 } from "@/lib/route/service";
 import { geocodeAddress } from "@/lib/maps/geocode";
 import { timeInTz } from "@/lib/date";
@@ -155,6 +156,63 @@ export async function addCustomerStopAction(
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível adicionar o cliente." };
+  }
+}
+
+export async function updateRouteStopAction(
+  routeId: string,
+  stopId: string,
+  data: {
+    priority: "AUTO" | "PRIMEIRA" | "ULTIMA";
+    serviceMinutes: number;
+    windowStart: string | null;
+    windowEnd: string | null;
+    notes: string | null;
+  },
+): Promise<RouteActionResult> {
+  try {
+    const user = await requireUser();
+    const tz = user.tenant.timezone;
+
+    const priorities = new Set(["AUTO", "PRIMEIRA", "ULTIMA"]);
+    if (!priorities.has(data.priority)) {
+      return { ok: false, error: "Prioridade inválida." };
+    }
+    const serviceMinutes = Math.round(Number(data.serviceMinutes));
+    if (!Number.isFinite(serviceMinutes) || serviceMinutes < 0 || serviceMinutes > 600) {
+      return { ok: false, error: "Tempo de atendimento inválido." };
+    }
+
+    const windowStart = data.windowStart?.trim() || null;
+    const windowEnd = data.windowEnd?.trim() || null;
+    for (const t of [windowStart, windowEnd]) {
+      if (t && !HHMM.test(t)) {
+        return { ok: false, error: "Janela inválida. Use início e fim." };
+      }
+    }
+    if (!!windowStart !== !!windowEnd) {
+      return { ok: false, error: "Informe início e fim da janela." };
+    }
+
+    const route = await db.route.findFirst({
+      where: { id: routeId, tenantId: user.tenantId },
+      select: { date: true },
+    });
+    if (!route) return { ok: false, error: "Rota não encontrada." };
+    const baseIso = route.date.toISOString().slice(0, 10);
+
+    await updateRouteStop(user.tenantId, user.id, routeId, stopId, {
+      priority: data.priority,
+      serviceMinutes,
+      notes: data.notes?.trim() || null,
+      windowStart: windowStart ? timeInTz(baseIso, windowStart, tz) : null,
+      windowEnd: windowEnd ? timeInTz(baseIso, windowEnd, tz) : null,
+    });
+
+    revalidatePath(`/rota/rotas/${routeId}`);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Não foi possível salvar a parada." };
   }
 }
 

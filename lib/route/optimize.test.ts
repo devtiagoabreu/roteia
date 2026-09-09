@@ -45,4 +45,54 @@ describe("motor de rota (nearest-neighbor)", () => {
     expect(plan.ordered.map((p) => p.key)).toEqual(["b", "a", "c"]);
     expect(plan.ordered[0]!.plannedStart >= start).toBe(true);
   });
+
+  it("respeita PRIMEIRA no início e ULTIMA no fim, reordenando o meio", () => {
+    // b é o mais distante da origem, mas é PRIMEIRA → deve ficar em primeiro.
+    const plan = optimizeRouteOrder(
+      [
+        { ...a, priority: "AUTO" },
+        { ...b, priority: "PRIMEIRA" },
+        { ...c, priority: "ULTIMA" },
+      ],
+      origin,
+      start,
+    );
+    expect(plan.ordered[0]!.key).toBe("b");
+    expect(plan.ordered[plan.ordered.length - 1]!.key).toBe("c");
+  });
+
+  it("espera a abertura da janela e sinaliza conflito quando o serviço estoura a janela", () => {
+    const lateDay = new Date(start.getTime() + 12 * 3600 * 1000);
+    const windowStartAt = lateDay;
+    const windowEndAt = new Date(lateDay.getTime() + 60 * 60000);
+    const windowConflictStop = {
+      ...b,
+      serviceMinutes: 90,
+      windowStart: windowStartAt,
+      windowEnd: new Date(lateDay.getTime() + 30 * 60000),
+    };
+
+    const plan = planRouteInOrder([windowConflictStop], null, start);
+    const planned = plan.ordered[0]!;
+    expect(planned.plannedStart.getTime()).toBe(windowStartAt.getTime());
+    expect(planned.conflict).toMatch(/Fora da janela/);
+
+    const okPlan = planRouteInOrder(
+      [{ ...a, serviceMinutes: 30, windowStart: windowStartAt, windowEnd: windowEndAt }],
+      null,
+      start,
+    );
+    expect(okPlan.ordered[0]!.conflict).toBeNull();
+    expect(okPlan.ordered[0]!.plannedEnd.getTime()).toBe(
+      windowStartAt.getTime() + 30 * 60000,
+    );
+  });
+
+  it("inclui o tempo de serviço na duração total", () => {
+    const withService = planRouteInOrder([{ ...a, serviceMinutes: 45 }], origin, start);
+    const without = planRouteInOrder([{ ...a }], origin, start);
+    expect(withService.ordered[0]!.plannedEnd.getTime()).toBe(
+      without.ordered[0]!.plannedEnd.getTime() + 45 * 60000,
+    );
+  });
 });

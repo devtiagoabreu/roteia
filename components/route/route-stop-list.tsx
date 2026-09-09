@@ -14,14 +14,20 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
+import { useState } from "react";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui";
 import {
   formatRouteTime,
+  routeStopPriorityLabels,
   stopStatusLabels,
   type RouteStopDto,
 } from "@/components/route/types";
 import { formatDistance } from "@/lib/format";
+import {
+  RouteStopEditForm,
+  type RouteStopEditData,
+} from "@/components/route/route-stop-edit";
 
 function navigateLinks(stop: RouteStopDto) {
   if (stop.lat == null || stop.lng == null) return null;
@@ -56,6 +62,7 @@ function RouteStopRow({
   isNext,
   onRemove,
   onStatusChange,
+  onEdit,
 }: {
   stop: RouteStopDto;
   tz: string;
@@ -63,13 +70,18 @@ function RouteStopRow({
   isNext: boolean;
   onRemove: (id: string) => void;
   onStatusChange: (id: string, status: RouteStopDto["status"]) => void;
+  onEdit: (id: string, data: RouteStopEditData) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: stop.id });
+  const [editing, setEditing] = useState(false);
 
   const done = stop.status === "FEITO";
   const skipped = stop.status === "PULADO";
   const active = stop.status === "PENDENTE" || stop.status === "EM_ANDAMENTO";
+  const hasWindow = stop.windowStart || stop.windowEnd;
+  const isManualPriority =
+    stop.priority === "PRIMEIRA" || stop.priority === "ULTIMA";
 
   return (
     <li
@@ -111,6 +123,11 @@ function RouteStopRow({
             </span>
           )}
           <span className="truncate text-sm font-medium">{stop.title}</span>
+          {isManualPriority && (
+            <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+              {routeStopPriorityLabels[stop.priority]}
+            </span>
+          )}
           <span
             className={`ml-auto shrink-0 text-[11px] font-medium ${
               done
@@ -139,12 +156,29 @@ function RouteStopRow({
               +{stop.travelMinutes} min de deslocamento
             </span>
           )}
+          {stop.serviceMinutes > 0 && (
+            <span className="text-zinc-400">
+              {stop.serviceMinutes} min de atendimento
+            </span>
+          )}
           {stop.distanceFromPreviousMeters != null &&
             stop.distanceFromPreviousMeters > 0 && (
               <span className="text-zinc-400">
                 {formatDistance(stop.distanceFromPreviousMeters)}
               </span>
             )}
+          {hasWindow && (
+            <span className="text-zinc-500">
+              janela{" "}
+              {stop.windowStart
+                ? formatRouteTime(stop.windowStart, tz)
+                : "—"}{" "}
+              –{" "}
+              {stop.windowEnd
+                ? formatRouteTime(stop.windowEnd, tz)
+                : "—"}
+            </span>
+          )}
           {(stop.startedAt || stop.finishedAt) && (
             <span className="text-zinc-400">
               {stop.startedAt && `iniciada às ${formatRouteTime(stop.startedAt, tz)}`}
@@ -153,7 +187,31 @@ function RouteStopRow({
           )}
         </div>
 
+        {stop.notes && (
+          <p className="mt-1 truncate text-xs text-zinc-500 dark:text-zinc-400">
+            {stop.notes}
+          </p>
+        )}
+
+        {stop.conflict && (
+          <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">
+            ⚠ {stop.conflict}
+          </p>
+        )}
+
         {navigateLinks(stop)}
+
+        {editing && (
+          <RouteStopEditForm
+            stop={stop}
+            tz={tz}
+            onCancel={() => setEditing(false)}
+            onSave={(data) => {
+              setEditing(false);
+              onEdit(stop.id, data);
+            }}
+          />
+        )}
       </div>
 
       <div className="flex flex-col items-stretch justify-between gap-2">
@@ -194,6 +252,14 @@ function RouteStopRow({
         )}
         <Button
           type="button"
+          variant="secondary"
+          onClick={() => setEditing((v) => !v)}
+          className="px-3 py-1 text-xs"
+        >
+          Editar
+        </Button>
+        <Button
+          type="button"
           variant="danger"
           onClick={() => onRemove(stop.id)}
           className="p-1.5"
@@ -214,12 +280,14 @@ export function RouteStopList({
   onReorder,
   onRemove,
   onStatusChange,
+  onEdit,
 }: {
   stops: RouteStopDto[];
   tz: string;
   onReorder: (ids: string[]) => void;
   onRemove: (id: string) => void;
   onStatusChange: (id: string, status: RouteStopDto["status"]) => void;
+  onEdit: (id: string, data: RouteStopEditData) => void;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -267,6 +335,7 @@ export function RouteStopList({
               isNext={index === nextIndex}
               onRemove={onRemove}
               onStatusChange={onStatusChange}
+              onEdit={onEdit}
             />
           ))}
         </ol>

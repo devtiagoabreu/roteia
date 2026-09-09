@@ -10,10 +10,12 @@ import {
   removeRouteStopAction,
   reorderRouteStopsAction,
   setRouteStopStatusAction,
+  updateRouteStopAction,
 } from "@/app/actions/routes";
 import { AddStopPanel } from "@/components/route/add-stop-panel";
 import { RouteSettings } from "@/components/route/route-settings";
 import { RouteStopList } from "@/components/route/route-stop-list";
+import type { RouteStopEditData } from "@/components/route/route-stop-edit";
 import { MapPanel } from "@/components/day/map-panel";
 import { Button, Card } from "@/components/ui";
 import { formatDistance, formatDuration } from "@/lib/format";
@@ -56,6 +58,15 @@ export function RouteBuilder({
     startTransition(async () => {
       const res = await removeRouteStopAction(route.id, stopId);
       if (!res.ok) setBannerError(res.error ?? "Não foi possível remover.");
+      router.refresh();
+    });
+  }
+
+  function handleEdit(stopId: string, data: RouteStopEditData) {
+    setBannerError(null);
+    startTransition(async () => {
+      const res = await updateRouteStopAction(route.id, stopId, data);
+      if (!res.ok) setBannerError(res.error ?? "Não foi possível salvar.");
       router.refresh();
     });
   }
@@ -138,15 +149,29 @@ export function RouteBuilder({
           : stops[i - 1]!.title;
       const isNearest = reasons[stop.id] !== false;
       const leg = stop.distanceFromPreviousMeters ?? 0;
+      const window =
+        stop.windowStart || stop.windowEnd
+          ? `janela ${
+              stop.windowStart
+                ? formatRouteTime(stop.windowStart, tz)
+                : "—"
+            }–${
+              stop.windowEnd
+                ? formatRouteTime(stop.windowEnd, tz)
+                : "—"
+            }`
+          : null;
       return {
         title: stop.title,
         prev,
         isNearest,
         distance: formatDistance(leg),
         minutes: stop.travelMinutes,
+        conflict: stop.conflict,
+        window,
       };
     });
-  }, [optimized, reasons, stops, route.startAddress]);
+  }, [optimized, reasons, stops, route.startAddress, tz]);
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
@@ -240,6 +265,7 @@ export function RouteBuilder({
             onReorder={handleReorder}
             onRemove={handleRemove}
             onStatusChange={handleStatusChange}
+            onEdit={handleEdit}
           />
 
           {stops.length > 0 && (
@@ -289,6 +315,15 @@ export function RouteBuilder({
                       ? ` · ${formatDuration(e.minutes)}`
                       : ""}
                     )
+                    {e.window && (
+                      <span className="text-zinc-500"> · {e.window}</span>
+                    )}
+                    {e.conflict && (
+                      <span className="font-medium text-red-600 dark:text-red-400">
+                        {" "}
+                        ⚠ {e.conflict}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ol>

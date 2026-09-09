@@ -61,6 +61,12 @@ enum RouteStatus {
   ARQUIVADO
 }
 
+enum RouteStopPriority {
+  AUTO
+  PRIMEIRA
+  ULTIMA
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -292,7 +298,7 @@ model Route {
 }
 
 model RouteStop {
-  id                         String     @id @default(cuid())
+  id                         String            @id @default(cuid())
   routeId                    String
   customerId                 String?
   position                   Int
@@ -301,15 +307,20 @@ model RouteStop {
   address                    String?
   lat                        Float?
   lng                        Float?
-  plannedStartAt             DateTime?  @db.Timestamptz(3)
-  plannedEndAt               DateTime?  @db.Timestamptz(3)
+  priority                   RouteStopPriority @default(AUTO)
+  serviceMinutes             Int               @default(15)
+  windowStart                DateTime?         @db.Timestamptz(3)
+  windowEnd                  DateTime?         @db.Timestamptz(3)
+  plannedStartAt             DateTime?         @db.Timestamptz(3)
+  plannedEndAt               DateTime?         @db.Timestamptz(3)
   travelMinutes              Int?
   distanceFromPreviousMeters Int?
-  status                     StopStatus @default(PENDENTE)
-  startedAt                  DateTime?  @db.Timestamptz(3)
-  finishedAt                 DateTime?  @db.Timestamptz(3)
-  createdAt                  DateTime   @default(now()) @db.Timestamptz(3)
-  updatedAt                  DateTime   @updatedAt @db.Timestamptz(3)
+  conflict                   String?
+  status                     StopStatus        @default(PENDENTE)
+  startedAt                  DateTime?         @db.Timestamptz(3)
+  finishedAt                 DateTime?         @db.Timestamptz(3)
+  createdAt                  DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime          @updatedAt @db.Timestamptz(3)
 
   route Route @relation(fields: [routeId], references: [id], onDelete: Cascade)
 

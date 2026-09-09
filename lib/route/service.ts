@@ -46,12 +46,30 @@ async function requireRoute(tenantId: string, routeId: string) {
   return route;
 }
 
+type PlanStopInput = {
+  id: string;
+  lat: number | null;
+  lng: number | null;
+  serviceMinutes?: number | null;
+  windowStart?: Date | null;
+  windowEnd?: Date | null;
+  priority?: "AUTO" | "PRIMEIRA" | "ULTIMA" | null;
+};
+
 function routePlanInputs(
-  stops: Array<{ id: string; lat: number | null; lng: number | null }>,
+  stops: PlanStopInput[],
   route: { startLat: number | null; startLng: number | null },
 ): { stops: RouteStopLike[]; origin: { lat: number | null; lng: number | null } } {
   return {
-    stops: stops.map((s) => ({ key: s.id, lat: s.lat, lng: s.lng })),
+    stops: stops.map((s) => ({
+      key: s.id,
+      lat: s.lat,
+      lng: s.lng,
+      serviceMinutes: s.serviceMinutes ?? undefined,
+      windowStart: s.windowStart ?? null,
+      windowEnd: s.windowEnd ?? null,
+      priority: s.priority ?? undefined,
+    })),
     origin: { lat: route.startLat, lng: route.startLng },
   };
 }
@@ -79,6 +97,7 @@ async function applyPlan(
         plannedEndAt: planned.plannedEnd,
         travelMinutes: planned.travelMinutes,
         distanceFromPreviousMeters: planned.distanceMeters,
+        conflict: planned.conflict ?? null,
       },
     });
   }
@@ -119,7 +138,7 @@ async function recalcRouteInTx(
   },
   timezone: string,
   transportMode: keyof typeof TRANSPORT_KMH,
-  stops: Array<{ id: string; lat: number | null; lng: number | null }>,
+  stops: PlanStopInput[],
 ): Promise<RoutePlan> {
   const dayIso = route.date.toISOString().slice(0, 10);
   const start =
@@ -296,7 +315,7 @@ export async function addCustomerStop(
     const stops = await tx.routeStop.findMany({
       where: { routeId },
       orderBy: { position: "asc" },
-      select: { id: true, lat: true, lng: true },
+      select: { id: true, lat: true, lng: true, serviceMinutes: true, windowStart: true, windowEnd: true, priority: true },
     });
     await recalcRouteInTx(
       tx,
@@ -357,7 +376,7 @@ export async function addAddressStop(
     const stops = await tx.routeStop.findMany({
       where: { routeId },
       orderBy: { position: "asc" },
-      select: { id: true, lat: true, lng: true },
+      select: { id: true, lat: true, lng: true, serviceMinutes: true, windowStart: true, windowEnd: true, priority: true },
     });
     await recalcRouteInTx(
       tx,
@@ -408,7 +427,7 @@ export async function removeRouteStop(
     const stops = await tx.routeStop.findMany({
       where: { routeId },
       orderBy: { position: "asc" },
-      select: { id: true, lat: true, lng: true },
+      select: { id: true, lat: true, lng: true, serviceMinutes: true, windowStart: true, windowEnd: true, priority: true },
     });
     await recalcRouteInTx(
       tx,
@@ -440,14 +459,22 @@ export async function reorderRouteStops(
     const stops = await tx.routeStop.findMany({
       where: { routeId },
       orderBy: { position: "asc" },
-      select: { id: true, lat: true, lng: true },
+      select: { id: true, lat: true, lng: true, serviceMinutes: true, windowStart: true, windowEnd: true, priority: true },
     });
     const ordered = orderedStopIds
       .map((id) => stops.find((s) => s.id === id)!)
       .filter(Boolean);
 
     const plan = planRouteInOrder(
-      ordered.map((s) => ({ key: s.id, lat: s.lat, lng: s.lng })),
+      ordered.map((s) => ({
+        key: s.id,
+        lat: s.lat,
+        lng: s.lng,
+        serviceMinutes: s.serviceMinutes,
+        windowStart: s.windowStart,
+        windowEnd: s.windowEnd,
+        priority: s.priority,
+      })),
       { lat: route.startLat, lng: route.startLng },
       route.startTime ??
         timeInTz(route.date.toISOString().slice(0, 10), "08:00", route.tenant.timezone),
@@ -482,7 +509,15 @@ export async function optimizeRoute(
   }
 
   const plan = optimizeRouteOrder(
-    route.stops.map((s) => ({ key: s.id, lat: s.lat, lng: s.lng })),
+    route.stops.map((s) => ({
+      key: s.id,
+      lat: s.lat,
+      lng: s.lng,
+      serviceMinutes: s.serviceMinutes,
+      windowStart: s.windowStart,
+      windowEnd: s.windowEnd,
+      priority: s.priority,
+    })),
     { lat: route.startLat, lng: route.startLng },
     route.startTime ??
       timeInTz(route.date.toISOString().slice(0, 10), "08:00", route.tenant.timezone),
@@ -511,6 +546,69 @@ export async function optimizeRoute(
         entityId: routeId,
       },
     });
+  });
+}
+
+export type RouteStopUpdateData = {
+  notes?: string | null;
+  serviceMinutes?: number;
+  priority?: RouteStop["priority"];
+  windowStart?: Date | null;
+  windowEnd?: Date | null;
+};
+
+export async function updateRouteStop(
+  tenantId: string,
+  userId: string | null,
+  routeId: string,
+  stopId: string,
+  data: RouteStopUpdateData,
+) {
+  const route = await requireRoute(tenantId, routeId);
+  const stop = route.stops.find((s) => s.id === stopId);
+  if (!stop) throw new ApiError("STOP_NOT_FOUND", 404, "Parada não encontrada.");
+
+  await db.$transaction(async (tx) => {
+    await tx.routeStop.update({
+      where: { id: stopId },
+      data: {
+        notes: data.notes ?? undefined,
+        serviceMinutes: data.serviceMinutes ?? undefined,
+        priority: data.priority ?? undefined,
+        windowStart: data.windowStart ?? undefined,
+        windowEnd: data.windowEnd ?? undefined,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        tenantId,
+        userId,
+        action: "UPDATE",
+        entityType: "Route",
+        entityId: routeId,
+      },
+    });
+
+    const stops = await tx.routeStop.findMany({
+      where: { routeId },
+      orderBy: { position: "asc" },
+      select: {
+        id: true,
+        lat: true,
+        lng: true,
+        serviceMinutes: true,
+        windowStart: true,
+        windowEnd: true,
+        priority: true,
+      },
+    });
+    await recalcRouteInTx(
+      tx,
+      route,
+      route.tenant.timezone,
+      route.tenant.transportMode,
+      stops,
+    );
   });
 }
 
@@ -670,7 +768,15 @@ export async function optimizeRemainingRoute(
       : { lat: route.startLat, lng: route.startLng };
 
   const plan = optimizeRouteOrder(
-    pending.map((s) => ({ key: s.id, lat: s.lat, lng: s.lng })),
+    pending.map((s) => ({
+      key: s.id,
+      lat: s.lat,
+      lng: s.lng,
+      serviceMinutes: s.serviceMinutes,
+      windowStart: s.windowStart,
+      windowEnd: s.windowEnd,
+      priority: s.priority,
+    })),
     origin,
     restStart,
     kmh,

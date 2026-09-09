@@ -1,4 +1,8 @@
-import type { RouteStatus, StopStatus } from "@/generated/prisma/client";
+import type {
+  RouteStatus,
+  RouteStopPriority,
+  StopStatus,
+} from "@/generated/prisma/client";
 
 export type RouteStopDto = {
   id: string;
@@ -9,10 +13,15 @@ export type RouteStopDto = {
   address: string | null;
   lat: number | null;
   lng: number | null;
+  priority: RouteStopPriority;
+  serviceMinutes: number;
+  windowStart: string | null;
+  windowEnd: string | null;
   plannedStartAt: string | null;
   plannedEndAt: string | null;
   travelMinutes: number | null;
   distanceFromPreviousMeters: number | null;
+  conflict: string | null;
   status: StopStatus;
   startedAt: string | null;
   finishedAt: string | null;
@@ -56,6 +65,25 @@ export const stopStatusLabels: Record<StopStatus, string> = {
   FEITO: "Concluída",
   PULADO: "Pulada",
 };
+
+export const routeStopPriorityLabels: Record<RouteStopPriority, string> = {
+  AUTO: "Automática",
+  PRIMEIRA: "Primeira",
+  ULTIMA: "Última",
+};
+
+export function formatRouteWindowTime(
+  iso: string | null,
+  tz: string,
+): string | null {
+  if (!iso) return null;
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: tz,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(iso));
+}
 
 export function formatRouteTime(
   iso: string | null,
