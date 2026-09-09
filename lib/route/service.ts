@@ -8,7 +8,7 @@ import {
   type RouteStopLike,
 } from "@/lib/route/optimize";
 import { TRANSPORT_KMH } from "@/lib/day/optimize";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, RouteStop } from "@/generated/prisma/client";
 import { geocodeAddress } from "@/lib/maps/geocode";
 
 export type RouteSettingsData = {
@@ -506,6 +506,71 @@ export async function optimizeRoute(
         tenantId,
         userId,
         action: "OPTIMIZE",
+        entityType: "Route",
+        entityId: routeId,
+      },
+    });
+  });
+}
+
+export async function setRouteStopStatus(
+  tenantId: string,
+  userId: string | null,
+  routeId: string,
+  stopId: string,
+  status: RouteStop["status"],
+) {
+  const route = await requireRoute(tenantId, routeId);
+  const stop = route.stops.find((s) => s.id === stopId);
+  if (!stop) throw new ApiError("STOP_NOT_FOUND", 404, "Parada não encontrada.");
+
+  await db.$transaction(async (tx) => {
+    await tx.routeStop.update({
+      where: { id: stopId },
+      data: {
+        status,
+        startedAt:
+          status === "EM_ANDAMENTO"
+            ? stop.startedAt ?? new Date()
+            : status === "PENDENTE"
+              ? null
+              : stop.startedAt,
+        finishedAt:
+          status === "FEITO"
+            ? new Date()
+            : status === "PENDENTE"
+              ? null
+              : stop.finishedAt,
+      },
+    });
+
+    const stops = await tx.routeStop.findMany({
+      where: { routeId },
+      select: { status: true },
+    });
+    const allDone = stops.every(
+      (s) => s.status === "FEITO" || s.status === "PULADO",
+    );
+    const inProgress = stops.some((s) => s.status === "EM_ANDAMENTO");
+
+    const nextStatus = allDone
+      ? "CONCLUIDO"
+      : inProgress
+        ? "EM_ANDAMENTO"
+        : route.status === "CONCLUIDO" || route.status === "EM_ANDAMENTO"
+          ? "OTIMIZADO"
+          : route.status;
+
+    await tx.route.update({
+      where: { id: routeId },
+      data: { status: nextStatus, version: { increment: 1 } },
+    });
+
+    await tx.auditLog.create({
+      data: {
+        tenantId,
+        userId,
+        action: "UPDATE",
         entityType: "Route",
         entityId: routeId,
       },

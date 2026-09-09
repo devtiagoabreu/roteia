@@ -8,6 +8,7 @@ import {
   optimizeRouteAction,
   removeRouteStopAction,
   reorderRouteStopsAction,
+  setRouteStopStatusAction,
 } from "@/app/actions/routes";
 import { AddStopPanel } from "@/components/route/add-stop-panel";
 import { RouteSettings } from "@/components/route/route-settings";
@@ -56,6 +57,18 @@ export function RouteBuilder({
     });
   }
 
+  function handleStatusChange(
+    stopId: string,
+    status: RouteStopDto["status"],
+  ) {
+    setBannerError(null);
+    startTransition(async () => {
+      const res = await setRouteStopStatusAction(route.id, stopId, status);
+      if (!res.ok) setBannerError(res.error ?? "Não foi possível atualizar.");
+      router.refresh();
+    });
+  }
+
   function handleOptimize() {
     setBannerError(null);
     startTransition(async () => {
@@ -98,6 +111,9 @@ export function RouteBuilder({
   }, [mapPoints, route.startLat, route.startLng]);
 
   const optimized = route.status === "OTIMIZADO";
+  const doneCount = stops.filter(
+    (s) => s.status === "FEITO" || s.status === "PULADO",
+  ).length;
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
@@ -155,7 +171,17 @@ export function RouteBuilder({
       </section>
 
       <div className="mb-4 text-right text-xs text-zinc-500">
-        <span>{stops.length} parada{stops.length === 1 ? "" : "s"}</span>
+        <span>
+          {stops.length} parada{stops.length === 1 ? "" : "s"}
+        </span>
+        {doneCount > 0 && (
+          <>
+            {" · "}
+            <span className={doneCount === stops.length ? "font-semibold text-green-600 dark:text-green-400" : ""}>
+              {doneCount}/{stops.length} {doneCount === stops.length ? "concluídas ✓" : "concluídas"}
+            </span>
+          </>
+        )}
         {(optimized || route.totalDistanceMeters != null) &&
           route.totalDistanceMeters != null && (
             <>
@@ -180,6 +206,7 @@ export function RouteBuilder({
             tz={tz}
             onReorder={handleReorder}
             onRemove={handleRemove}
+            onStatusChange={handleStatusChange}
           />
 
           {stops.length > 0 && (

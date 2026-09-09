@@ -1,4 +1,4 @@
-import type { RouteStatus } from "@/generated/prisma/client";
+import type { RouteStatus, StopStatus } from "@/generated/prisma/client";
 
 export type RouteStopDto = {
   id: string;
@@ -10,8 +10,12 @@ export type RouteStopDto = {
   lat: number | null;
   lng: number | null;
   plannedStartAt: string | null;
+  plannedEndAt: string | null;
   travelMinutes: number | null;
   distanceFromPreviousMeters: number | null;
+  status: StopStatus;
+  startedAt: string | null;
+  finishedAt: string | null;
 };
 
 export type RouteCustomerOption = {
@@ -44,6 +48,13 @@ export const routeStatusLabels: Record<RouteStatus, string> = {
   EM_ANDAMENTO: "em andamento",
   CONCLUIDO: "concluída",
   ARQUIVADO: "arquivada",
+};
+
+export const stopStatusLabels: Record<StopStatus, string> = {
+  PENDENTE: "Pendente",
+  EM_ANDAMENTO: "Em andamento",
+  FEITO: "Concluída",
+  PULADO: "Pulada",
 };
 
 export function formatRouteTime(

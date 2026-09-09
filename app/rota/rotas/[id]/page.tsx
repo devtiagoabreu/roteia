@@ -66,8 +66,12 @@ export default async function RoutePage({
     lat: s.lat,
     lng: s.lng,
     plannedStartAt: s.plannedStartAt?.toISOString() ?? null,
+    plannedEndAt: s.plannedEndAt?.toISOString() ?? null,
     travelMinutes: s.travelMinutes,
     distanceFromPreviousMeters: s.distanceFromPreviousMeters,
+    status: s.status,
+    startedAt: s.startedAt?.toISOString() ?? null,
+    finishedAt: s.finishedAt?.toISOString() ?? null,
   }));
 
   const customersDto: RouteCustomerOption[] = customers.map((c) => ({

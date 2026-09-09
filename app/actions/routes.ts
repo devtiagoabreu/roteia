@@ -10,6 +10,7 @@ import {
   optimizeRoute,
   removeRouteStop,
   reorderRouteStops,
+  setRouteStopStatus,
   updateRouteSettings,
 } from "@/lib/route/service";
 import { geocodeAddress } from "@/lib/maps/geocode";
@@ -227,6 +228,21 @@ export async function optimizeRouteAction(
     return { ok: true };
   } catch {
     return { ok: false, error: "Não foi possível otimizar." };
+  }
+}
+
+export async function setRouteStopStatusAction(
+  routeId: string,
+  stopId: string,
+  status: "PENDENTE" | "EM_ANDAMENTO" | "FEITO" | "PULADO",
+): Promise<RouteActionResult> {
+  try {
+    const user = await requireUser();
+    await setRouteStopStatus(user.tenantId, user.id, routeId, stopId, status);
+    revalidatePath(`/rota/rotas/${routeId}`);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Não foi possível atualizar o status da parada." };
   }
 }
 

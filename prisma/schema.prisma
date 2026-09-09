@@ -306,6 +306,8 @@ model RouteStop {
   travelMinutes              Int?
   distanceFromPreviousMeters Int?
   status                     StopStatus @default(PENDENTE)
+  startedAt                  DateTime?  @db.Timestamptz(3)
+  finishedAt                 DateTime?  @db.Timestamptz(3)
   createdAt                  DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt                  DateTime   @updatedAt @db.Timestamptz(3)
 
